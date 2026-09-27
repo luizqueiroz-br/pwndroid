@@ -1,0 +1,17 @@
+build:
+  maxIssues: 0
+
+style:
+  MagicNumber:
+    # Domínio de rádio usa constantes numéricas inline (RSSI, TTLs, canais);
+    # os nomes dos parâmetros já documentam o significado.
+    active: false
+  ReturnCount:
+    active: false
+naming:
+  FunctionNaming:
+    # Composables Compose são PascalCase por convenção.
+    ignoreAnnotated: ['Composable']
+exceptions:
+  TooGenericExceptionCaught:
+    active: false

@@ -86,12 +86,14 @@ class EpochOrchestrator(
 
         // Interações: assoc (PMKID) + deauth nos alvos eleitos pelo cérebro.
         _state.value = _state.value.copy(phase = Phase.INTERACT, candidates = candidates.toList())
-        for (i in 0 until personality.maxInteractions) {
-            val target = brain.selectTarget(candidates) ?: break
-            backend.setChannel(target.channel)
-            backend.associate(target.bssid, null)
-            if (target.clients > 0) {
-                backend.deauth(target.bssid, null, personality.deauthCount)
+        run {
+            repeat(personality.maxInteractions) {
+                val target = brain.selectTarget(candidates) ?: return@run
+                backend.setChannel(target.channel)
+                backend.associate(target.bssid, null)
+                if (target.clients > 0) {
+                    backend.deauth(target.bssid, null, personality.deauthCount)
+                }
             }
         }
 

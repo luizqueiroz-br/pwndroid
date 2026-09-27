@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # Version catalog: uma PR unificada por semana com todas as versões.
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+  # Actions do CI.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
