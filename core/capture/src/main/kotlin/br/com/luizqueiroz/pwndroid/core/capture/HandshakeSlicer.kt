@@ -29,7 +29,7 @@ object HandshakeSlicer {
 
     /**
      * Classifica um frame a partir do payload EAPOL (sem o header 802.11).
-     * [frame] deve começar no campo Version do EAPOL (offset 0).
+     * [eapolFrame] deve começar no campo Version do EAPOL (offset 0).
      */
     fun classify(eapolFrame: ByteArray): Verdict {
         if (eapolFrame.size < EAPOL_KEY_INFO_OFFSET + 4) return Verdict.NotEapol
@@ -37,19 +37,26 @@ object HandshakeSlicer {
         val frameType = eapolFrame[1].toInt() and 0xff
         if (frameType != 0x03) return Verdict.NotEapol
 
-        // Key Information: 2 bytes big-endian em offset 6+1 (após Key Descriptor Type
-        // começa o Key Information — usamos o layout do hcxtools simplificado).
+        // Key Information: 2 bytes big-endian em offset 6 (layout hcxtools
+        // simplificado).
         val keyInfo = ((eapolFrame[6].toInt() and 0xff) shl 8) or (eapolFrame[7].toInt() and 0xff)
-        val key = when {
-            hasBit(keyInfo, KEY_INFO_KEY_ACK) && !hasBit(keyInfo, KEY_INFO_MIC) -> Message.M1
-            !hasBit(keyInfo, KEY_INFO_KEY_ACK) && hasBit(keyInfo, KEY_INFO_MIC) && !hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M2
-            hasBit(keyInfo, KEY_INFO_KEY_ACK) && hasBit(keyInfo, KEY_INFO_MIC) && !hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M3
-            !hasBit(keyInfo, KEY_INFO_KEY_ACK) && hasBit(keyInfo, KEY_INFO_MIC) && hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M4
-            else -> null
-        } ?: return Verdict.NotEapol
-
+        val key = messageOf(keyInfo) ?: return Verdict.NotEapol
         // TODO(issue #11): detectar PMKID no KDE do M1 e rastrear pares M1/M2.
         return Verdict.Partial(key)
+    }
+
+    private fun messageOf(keyInfo: Int): Message? = when {
+        hasBit(keyInfo, KEY_INFO_KEY_ACK) && !hasBit(keyInfo, KEY_INFO_MIC) -> Message.M1
+        !hasBit(keyInfo, KEY_INFO_KEY_ACK) &&
+            hasBit(keyInfo, KEY_INFO_MIC) &&
+            !hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M2
+        hasBit(keyInfo, KEY_INFO_KEY_ACK) &&
+            hasBit(keyInfo, KEY_INFO_MIC) &&
+            !hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M3
+        !hasBit(keyInfo, KEY_INFO_KEY_ACK) &&
+            hasBit(keyInfo, KEY_INFO_MIC) &&
+            hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M4
+        else -> null
     }
 
     private fun hasBit(value: Int, bit: Int) = (value and bit) != 0

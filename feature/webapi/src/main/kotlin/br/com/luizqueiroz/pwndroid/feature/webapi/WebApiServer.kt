@@ -25,8 +25,9 @@ import kotlinx.serialization.json.Json
  */
 class WebApiServer(
     private val port: Int = 8080,
-    private val basicUser: String? = null,
-    private val basicPass: String? = null,
+    // Guardados para a issue #23 (Basic Auth via ktor-server-auth).
+    @Suppress("UNUSED_PARAMETER") private val basicUser: String? = null,
+    @Suppress("UNUSED_PARAMETER") private val basicPass: String? = null,
     private val faceProvider: () -> String,
     private val statusProvider: () -> String,
 ) {
