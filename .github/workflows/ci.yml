@@ -22,7 +22,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Gradle (cache)
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Detekt
         run: ./gradlew detektAll --no-daemon --stacktrace
