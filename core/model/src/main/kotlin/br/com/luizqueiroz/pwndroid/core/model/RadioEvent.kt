@@ -4,9 +4,19 @@ import kotlinx.serialization.Serializable
 
 /**
  * Um evento emitido pelo rádio (via [br.com.luizqueiroz.pwndroid.core.radio.RadioBackend]).
+ * Conjunto canônico da issue #6: todo fato observável do rádio chega como
+ * um [RadioEvent] no fluxo quente do backend.
  */
 @Serializable
 sealed interface RadioEvent {
+
+    /** O recon começou nos canais dados. */
+    @Serializable
+    data class ReconStarted(val channels: List<Int>) : RadioEvent
+
+    /** O ciclo de recon terminou (uma passada completa nos canais). */
+    @Serializable
+    data class ReconFinished(val durationMs: Long) : RadioEvent
 
     /** Um AP foi visto durante o recon. */
     @Serializable
@@ -20,7 +30,7 @@ sealed interface RadioEvent {
 
     /** Um cliente (STA) foi visto associado a um AP. */
     @Serializable
-    data class StaSeen(
+    data class StationSeen(
         val station: String,
         val bssid: String?,
         val rssi: Int,
@@ -37,13 +47,21 @@ sealed interface RadioEvent {
         val isPmkid: Boolean = false,
     ) : RadioEvent
 
+    /** Um peer (outro pwnagotchi/pwndroid) foi visto no canal. */
+    @Serializable
+    data class PeerSeen(val fingerprint: String, val name: String?) : RadioEvent
+
+    /** Há internet disponível (upstream de internet do grid). */
+    @Serializable
+    data class InternetAvailable(val viaPeer: Boolean) : RadioEvent
+
     /** O canal do rádio mudou (hop). */
     @Serializable
     data class ChannelChanged(val channel: Int) : RadioEvent
 
     /** Erro não fatal reportado pelo backend. */
     @Serializable
-    data class Error(val message: String) : RadioEvent
+    data class BackendError(val message: String, val recoverable: Boolean = true) : RadioEvent
 }
 
 /**
