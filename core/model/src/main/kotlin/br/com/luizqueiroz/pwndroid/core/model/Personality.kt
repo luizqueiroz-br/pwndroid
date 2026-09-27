@@ -3,24 +3,24 @@ package br.com.luizqueiroz.pwndroid.core.model
 import kotlinx.serialization.Serializable
 
 /**
- * Parâmetros de personalidade do agente — equivalente ao bloco
- * `main.confidence` / `personality` do pwnagotchi original. O cérebro
- * (Thompson Sampling ou A2C) ajusta esses valores ao longo das épocas.
+ * Parâmetros de personalidade do agente — defaults idênticos ao
+ * `pwnagotchi/defaults.toml` do original: recon_time 30, ap_ttl 120,
+ * sta_ttl 45, min_rssi -200, max_interactions 3, channels [1..13].
  */
 @Serializable
 data class Personality(
-    /** Tempo total de recon por época, em segundos. */
+    /** Tempo total de recon por época, em segundos (recon_time). */
     val reconTimeSec: Long = 30,
-    /** TTL (s) de um AP na lista de alvos desde a última vez visto. */
-    val apTtlSec: Long = 600,
-    /** TTL (s) de um cliente (STA) na lista de alvos. */
-    val staTtlSec: Long = 600,
-    /** RSSI mínimo para um AP/STA ser elegível como alvo. */
+    /** TTL (s) de um AP na lista de alvos desde a última vez visto (ap_ttl). */
+    val apTtlSec: Long = 120,
+    /** TTL (s) de um cliente (STA) na lista de alvos (sta_ttl). */
+    val staTtlSec: Long = 45,
+    /** RSSI mínimo para um AP/STA ser elegível como alvo (min_rssi). */
     val minRssi: Int = -200,
-    /** Canais que o rádio pode hoppnar; vazio = todos. */
-    val channels: Set<Int> = emptySet(),
-    /** Máximo de interações (assoc/deauth) por época. */
-    val maxInteractions: Int = 6,
+    /** Canais que o rádio pode hoppnar; vazio = todos (channels). */
+    val channels: Set<Int> = (1..13).toSet(),
+    /** Máximo de interações (assoc/deauth) por época (max_interactions). */
+    val maxInteractions: Int = 3,
     /** Deauths enviados por pacote de desautenticação. */
     val deauthCount: Int = 6,
     /** Quantos pacotes de associação (PMKID) por alvo. */
@@ -33,5 +33,6 @@ data class Personality(
     init {
         require(reconTimeSec > 0) { "reconTimeSec deve ser > 0" }
         require(maxInteractions >= 0) { "maxInteractions deve ser >= 0" }
+        require(minRssi <= 0) { "minRssi deve ser <= 0" }
     }
 }
