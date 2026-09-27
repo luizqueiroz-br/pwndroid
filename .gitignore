@@ -1,0 +1,43 @@
+# Build
+.gradle/
+build/
+*/build/
+*/*/build/
+*/src/main/gen/
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# Kotlin
+*.kotlin_metadata
+kotlin-js-store/
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+bin/
+gen/
+captures/
+.cxx/
+key.properties
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / local
+*.env
+*.local
+crash-reports/
