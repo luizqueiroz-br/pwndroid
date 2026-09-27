@@ -50,7 +50,7 @@ sealed interface RadioEvent {
  * Estados de operação do rádio, espelhando os modos do pwnagotchi original
  * (MANU/AUTO/AI) mais o estado offline dos backends sem injeção.
  */
-enum class PwnMode { MANU, AUTO, AI, PASSIVE }
+enum class PwnMode { MANUAL, AUTO, AI, PASSIVE }
 
 /**
  * Alvo selecionado pelo cérebro para uma época.
