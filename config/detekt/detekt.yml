@@ -12,6 +12,10 @@ naming:
   FunctionNaming:
     # Composables Compose são PascalCase por convenção.
     ignoreAnnotated: ['Composable']
+complexity:
+  LongParameterList:
+    # Builder fluente do FakeRadioBackend usa >6 parâmetros com defaults.
+    functionThreshold: 8
 exceptions:
   TooGenericExceptionCaught:
     active: false

@@ -40,7 +40,7 @@ class MoodAutomata(private val bus: EventBus) {
             epochsSinceHandshake = 0
             mood = Mood.HAPPY
         }
-        bus.subscribe<RadioEvent.Error>(scope) {
+        bus.subscribe<RadioEvent.BackendError>(scope) {
             mood = Mood.SAD
         }
     }

@@ -1,98 +1,105 @@
 package br.com.luizqueiroz.pwndroid.core.radio
 
+import br.com.luizqueiroz.pwndroid.core.common.AppClock
+import br.com.luizqueiroz.pwndroid.core.model.AccessPoint
+import br.com.luizqueiroz.pwndroid.core.model.MacAddress
+import br.com.luizqueiroz.pwndroid.core.model.Personality
 import br.com.luizqueiroz.pwndroid.core.model.RadioEvent
-import br.com.luizqueiroz.pwndroid.core.model.Target
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
+
+/** Identificador do backend (qual implementação de rádio está ativa). */
+enum class BackendId { PASSIVE, BETTERCAP, NEXMON, ESP32, FAKE }
 
 /**
- * Única fronteira entre o cérebro/orquestrador e o hardware de rádio.
- * Cada implementação (passivo sem root, bettercap, Nexmon, ESP32) fala a
- * mesma língua: um fluxo de eventos e operações suspend.
+ * Capacidades que um backend declara no device atual. O cérebro/orquestrador
+ * nunca toca em hardware sem checar aqui primeiro.
  */
-interface RadioBackend {
-
-    /** Identificador estável do backend (ex.: "passive", "bettercap", "nexmon", "esp32"). */
-    val id: String
-
-    /** Capacidades que este backend oferece no ambiente atual. */
-    val capabilities: BackendCapabilities
-
-    /** Fluxo frio de eventos; começa a emitir quando coletado. */
-    fun events(): Flow<RadioEvent>
-
-    /** true quando o backend está pronto para receber operações. */
-    suspend fun isAvailable(): Boolean
-}
-
-/**
- * Backend que também aceita operações ativas (recon/hop/deauth/assoc).
- * Backends passivos só implementam [RadioBackend].
- */
-interface StartedBackend : RadioBackend {
-    suspend fun start()
-    suspend fun stop()
-    suspend fun setChannel(channel: Int)
-    suspend fun deauth(bssid: String, station: String?, count: Int)
-    suspend fun associate(bssid: String, station: String?)
-}
-
-/** Capacidades observáveis de um backend em um dado device. */
-data class BackendCapabilities(
-    /** Enxerga APs/STAs (todo backend deve). */
+data class RadioCapabilities(
     val canRecon: Boolean = true,
-    /** Pode trocar de canal. */
-    val canHop: Boolean = false,
-    /** Pode enviar deauth (exige root + driver com injeção). */
-    val canDeauth: Boolean = false,
-    /** Pode associar para colher PMKID. */
     val canAssoc: Boolean = false,
-    /** Escreve PCAPs hashcat-ready por conta própria. */
-    val writesPcap: Boolean = false,
-    /** Escaneia BLE (modo sem root). */
+    val canDeauth: Boolean = false,
+    val canCaptureEapol: Boolean = false,
+    val canCapturePmkid: Boolean = false,
+    val canSetChannel: Boolean = false,
+    val canSeePeers: Boolean = false,
     val canBle: Boolean = false,
 )
 
 /**
- * Seleciona o melhor backend disponível no device (root, USB OTG, etc.).
- * Implementação completa chega com a issue #6; por ora, o registro é
- * preenchido manualmente pelo DI.
+ * Serviços do ambiente oferecidos ao backend no start (escrita de PCAPs,
+ * relógio). Nada de Android aqui — o :app monta a implementação real.
  */
-class BackendSelector(private val candidates: List<RadioBackend>) {
-    /** Devolve o backend com mais capacidades que está disponível, ou null. */
-    suspend fun select(): RadioBackend? =
-        candidates
-            .sortedByDescending { it.capabilities.score() }
-            .firstOrNull { it.isAvailable() }
+interface BackendEnvironment {
+    /** Relógio do app (fake em testes). */
+    val clock: AppClock
+
+    /** Diretório onde o backend escreve os PCAPs (`ESSID_BSSID.pcap`). */
+    val captureDir: String
 }
 
-private fun BackendCapabilities.score(): Int =
-    listOf(canRecon, canHop, canDeauth, canAssoc, writesPcap, canBle).count { it }
+/**
+ * Única fronteira entre o cérebro/orquestrador e o hardware de rádio.
+ * `start()` devolve o backend no estado operacional ([StartedBackend]);
+ * implementações sem injeção (passivo) ainda são [RadioBackend] válidas.
+ */
+interface RadioBackend {
+    val id: BackendId
+    val capabilities: RadioCapabilities
+
+    /** Coloca o backend em operação; pode lançar [BackendUnavailableException]. */
+    suspend fun start(env: BackendEnvironment): StartedBackend
+}
+
+/** O backend está indisponível no device atual (sem root, sem USB, etc.). */
+class BackendUnavailableException(message: String, cause: Throwable? = null) :
+    IllegalStateException(message, cause)
 
 /**
- * Backend falsível para testes do orquestrador/cérebro: emite o que o teste
- * programar e registra as operações pedidas, sem tocar em hardware.
+ * Backend em operação: recon, interações e eventos. PCAP nunca aparece
+ * nesta interface — quem captura escreve o arquivo e emite
+ * [RadioEvent.HandshakeDetected] com o caminho.
  */
-class FakeRadioBackend(
-    override val capabilities: BackendCapabilities = BackendCapabilities(),
-    private val scripted: List<RadioEvent> = emptyList(),
-) : StartedBackend {
-    override val id: String = "fake"
-    private val ops = mutableListOf<String>()
+interface StartedBackend {
+    /** Recon contínuo nos canais dados, com dwell (ms) por canal. */
+    suspend fun startRecon(channels: Set<Int>, dwellMs: Long)
 
-    /** Operações recebidas até agora, em ordem (para asserts de teste). */
-    val operations: List<String> get() = ops.toList()
+    suspend fun stopRecon()
 
-    override fun events(): Flow<RadioEvent> = kotlinx.coroutines.flow.flow {
-        for (event in scripted) emit(event)
-    }
+    /** Snapshot dos APs vistos desde o início do recon. */
+    suspend fun accessPoints(): List<AccessPoint>
 
-    override suspend fun isAvailable(): Boolean = true
-    override suspend fun start() = ops.add("start").let { }
-    override suspend fun stop() = ops.add("stop").let { }
-    override suspend fun setChannel(channel: Int) = ops.add("channel:$channel").let { }
-    override suspend fun deauth(bssid: String, station: String?, count: Int) =
-        ops.add("deauth:$bssid/$station#$count").let { }
+    /** Associação aberta para colher PMKID (M1 com PMKID no KDE). */
+    suspend fun assoc(ap: MacAddress): Result<Unit>
 
-    override suspend fun associate(bssid: String, station: String?) =
-        ops.add("assoc:$bssid/$station").let { }
+    /** Desautentica um cliente (ou broadcast quando [sta] é null). */
+    suspend fun deauth(sta: MacAddress?, ap: MacAddress): Result<Unit>
+
+    suspend fun setChannel(channel: Int, widthMhz: Int = 20): Result<Unit>
+
+    /** Fluxo quente de eventos do backend. */
+    fun events(): SharedFlow<RadioEvent>
+
+    /** Ajusta parâmetros dirigidos pela personalidade da época. */
+    suspend fun applyPersonality(p: Personality)
+
+    suspend fun shutdown()
+}
+
+/**
+ * Seleciona o melhor backend disponível: tenta `start()` em ordem de
+ * capacidades e devolve o primeiro que sobe.
+ */
+class BackendSelector(private val candidates: List<RadioBackend>) {
+
+    /** O backend com mais capacidades que conseguiu subir, ou null. */
+    suspend fun select(env: BackendEnvironment): StartedBackend? =
+        candidates
+            .sortedByDescending { it.capabilities.score() }
+            .firstNotNullOfOrNull { backend ->
+                runCatching { backend.start(env) }.getOrNull()
+            }
+
+    private fun RadioCapabilities.score(): Int =
+        listOf(canRecon, canAssoc, canDeauth, canCaptureEapol, canCapturePmkid, canSetChannel, canSeePeers, canBle)
+            .count { it }
 }
