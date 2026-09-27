@@ -102,6 +102,12 @@ funcionalidade de deauth).
 Detalhes nas [issues](https://github.com/luizqueiroz-br/pwndroid/issues) e
 [milestones](https://github.com/luizqueiroz-br/pwndroid/milestones).
 
+## Documentação
+
+- [Arquitetura](docs/arquitetura.md) — módulos e fronteiras
+- [Matriz de dispositivos](docs/matriz-de-dispositivos.md) — chipsets × métodos, resultados da comunidade
+- [Protocolo ESP32](docs/protocolo-esp32.md) — stub do protocolo serial OTG
+
 ## Contribuindo
 
 Veja [CONTRIBUTING.md](CONTRIBUTING.md). Issues marcadas com
