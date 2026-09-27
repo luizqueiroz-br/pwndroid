@@ -35,6 +35,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:common"))
     implementation(project(":core:radio"))
+    implementation(project(":core:radio:passive"))
     implementation(project(":core:brain"))
     implementation(project(":core:mood"))
     implementation(project(":core:session"))
@@ -62,4 +63,6 @@ dependencies {
     testImplementation(libs.kotest.assertions)
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
