@@ -5,20 +5,23 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import br.com.luizqueiroz.pwndroid.core.mood.FaceState
-import br.com.luizqueiroz.pwndroid.core.mood.Mood
-import br.com.luizqueiroz.pwndroid.feature.display.FaceRenderer
+import br.com.luizqueiroz.pwndroid.core.session.SessionRegistry
+import br.com.luizqueiroz.pwndroid.service.PwnForegroundService
+import br.com.luizqueiroz.pwndroid.ui.HomeScreen
+import org.koin.core.context.GlobalContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val demoFace = FaceState(Mood.LONELY, "(⌒▽⌒)", "Estou sozinho, procurando redes…")
+        val registry = GlobalContext.get().get<SessionRegistry>()
         setContent {
-            val face by kotlinx.coroutines.flow.MutableStateFlow(demoFace).collectAsState()
-            FaceRenderer(
-                face = face,
-                uptimeText = "00:00",
-                handshakesCount = 0,
+            val ui by registry.state.collectAsState()
+            val running = ui.backend != null
+            HomeScreen(
+                ui = ui,
+                running = running,
+                onStart = { PwnForegroundService.start(this) },
+                onStop = { PwnForegroundService.stop(this) },
             )
         }
     }

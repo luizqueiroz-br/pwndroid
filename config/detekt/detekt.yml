@@ -14,8 +14,10 @@ naming:
     ignoreAnnotated: ['Composable']
 complexity:
   LongParameterList:
-    # Builder fluente do FakeRadioBackend usa >6 parâmetros com defaults.
+    # Builder fluente do FakeRadioBackend usa >6 parâmetros com defaults;
+    # SessionController leva o grafo da sessão no construtor.
     functionThreshold: 8
+    constructorThreshold: 9
 exceptions:
   TooGenericExceptionCaught:
     active: false

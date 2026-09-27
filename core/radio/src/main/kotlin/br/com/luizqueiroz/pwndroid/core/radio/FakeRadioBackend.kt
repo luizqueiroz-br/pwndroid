@@ -150,6 +150,8 @@ class FakeRadioBackend(
     // --- StartedBackend -------------------------------------------------------
 
     private inner class Started : StartedBackend {
+        override val backendId: BackendId get() = this@FakeRadioBackend.id
+
         override suspend fun startRecon(channels: Set<Int>, dwellMs: Long) {
             check(started) { "backend não iniciado" }
             reconRunning = true
@@ -209,6 +211,7 @@ class FakeRadioBackend(
         override suspend fun shutdown() {
             operations += "shutdown"
             reconRunning = false
+            started = false
         }
     }
 

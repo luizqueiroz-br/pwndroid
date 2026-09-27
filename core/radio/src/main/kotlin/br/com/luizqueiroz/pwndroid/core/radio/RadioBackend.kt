@@ -60,6 +60,9 @@ class BackendUnavailableException(message: String, cause: Throwable? = null) :
  * [RadioEvent.HandshakeDetected] com o caminho.
  */
 interface StartedBackend {
+    /** Qual backend está em operação (para a UI e telemetria). */
+    val backendId: BackendId
+
     /** Recon contínuo nos canais dados, com dwell (ms) por canal. */
     suspend fun startRecon(channels: Set<Int>, dwellMs: Long)
 
