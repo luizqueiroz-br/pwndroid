@@ -45,6 +45,7 @@ class BackendSelectorTest {
         lateinit var startedInstance: StartedTestBackend
 
         inner class StartedTestBackend : StartedBackend {
+            override val backendId: BackendId = this@WorkingBackend.id
             override suspend fun startRecon(channels: Set<Int>, dwellMs: Long) = Unit
             override suspend fun stopRecon() = Unit
             override suspend fun accessPoints(): List<AccessPoint> = emptyList()
