@@ -9,6 +9,9 @@ jobs:
   build:
     name: Build, test & detekt
     runs-on: ubuntu-latest
+    env:
+      # ubuntu-latest já traz o Android SDK preinstalado.
+      ANDROID_HOME: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
 
@@ -17,11 +20,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          accept-android-sdk-licenses: true
 
       - name: Setup Gradle (cache)
         uses: gradle/actions/setup-gradle@v3
