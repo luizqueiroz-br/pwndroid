@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,6 +47,14 @@ class SessionController(
     private val waitFor: suspend (millis: Long) -> Unit = { delay(it) },
     /** Registro compartilhado do estado (opcional; UI/web API observam). */
     private val registry: SessionRegistry? = null,
+    /**
+     * Fluxo de troca de modo em tempo real (issue #59): observado enquanto a
+     * sessão roda; cada emissão vale a partir da próxima época, sem restart.
+     * `null` = sem atualização de modo em tempo real (comportamento antigo).
+     * A preferência de backend NÃO é observável aqui — exige nova sessão
+     * (o backend é selecionado apenas no start).
+     */
+    private val modeUpdates: Flow<br.com.luizqueiroz.pwndroid.core.model.PwnMode>? = null,
 ) {
     private val _state = MutableStateFlow(SessionUiState())
     val state: StateFlow<SessionUiState> = _state.asStateFlow()
@@ -54,6 +63,7 @@ class SessionController(
     private var orchestrator: EpochOrchestrator? = null
     private var startedBackend: StartedBackend? = null
     private var collector: Job? = null
+    private var modeWatcher: Job? = null
 
     /** Inicia a sessão no [mode]; ignorado enquanto uma sessão já roda. */
     fun start(mode: PwnMode = PwnMode.AUTO, maxEpochs: Long = Long.MAX_VALUE) {
@@ -79,6 +89,14 @@ class SessionController(
                 }
             }
             orch.start(scope, mode, maxEpochs)
+            // Atualizações de modo em tempo real (issue #59): cada emissão
+            // troca o modo do orquestrador — vale na próxima época.
+            val updates = modeUpdates
+            if (updates != null) {
+                modeWatcher = scope.launch {
+                    updates.collect { orch.setMode(it) }
+                }
+            }
         }
     }
 
@@ -90,6 +108,8 @@ class SessionController(
         orchestrator = null
         collector?.cancel()
         collector = null
+        modeWatcher?.cancel()
+        modeWatcher = null
         startedBackend?.let { backend ->
             scope.launch {
                 runCatching { backend.shutdown() }

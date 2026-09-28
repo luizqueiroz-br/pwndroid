@@ -183,4 +183,47 @@ class EpochOrchestratorTest {
         assertEquals(1, orch.state.value.pmkids)
         orch.stop()
     }
+
+    @Test
+    fun `setMode em sessão rodando vale na próxima época`() = runTest {
+        val clock = ManualClock()
+        val backend = FakeRadioBackend(clock)
+        val brain = ScriptedBrain()
+        // Gate: a ÉPOCA 2 trava no waitFor até o teste trocar o modo —
+        // garante que a troca acontece ENTRE as épocas (issue #59).
+        val releaseEpoch2 = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var waitCalls = 0
+        val started = kotlinx.coroutines.runBlocking { backend.start(env()) }
+        val orch = EpochOrchestrator(started, brain, EventBus(), SessionConfig(), waitFor = { _ ->
+            if (waitCalls == 1) {
+                // waitFor da época 2: aguarda a liberação do teste.
+                releaseEpoch2.await()
+            } else {
+                waitCalls++
+                clock.advanceBy(30_000)
+            }
+        })
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+
+        backend.script.ap("AA:BB:CC:00:00:01", ssid = "alvo", channel = 1)
+        orch.start(scope, PwnMode.MANUAL, maxEpochs = 2)
+        testScheduler.runCurrent()
+        // Época 1 completou em MANUAL (a 2ª está travada no gate).
+        testScheduler.advanceUntilIdle()
+        assertEquals(1, orch.state.value.epoch)
+        assertFalse(backend.operations.any { it.startsWith("assoc") })
+
+        // Troca em sessão rodando (issue #59) e libera a época 2.
+        orch.setMode(PwnMode.AUTO)
+        backend.script
+            .ap("AA:BB:CC:00:00:02", ssid = "novo", channel = 6)
+            .station("AA:BB:CC:00:00:02", "AA:BB:CC:00:00:09")
+        releaseEpoch2.complete(Unit)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(2, orch.state.value.epoch)
+        // A época 2 interage (AUTO) — a 1 em MANUAL não interagiu.
+        assertTrue(backend.operations.any { it.startsWith("assoc:") })
+        orch.stop()
+    }
 }

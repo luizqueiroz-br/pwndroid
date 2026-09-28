@@ -19,6 +19,7 @@ import br.com.luizqueiroz.pwndroid.core.session.SessionRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.map
 import org.koin.core.Koin
 import org.koin.core.context.GlobalContext
 
@@ -59,16 +60,22 @@ class PwnForegroundService : Service() {
         return START_STICKY
     }
 
-    /** Monta o grafo da sessão a partir do Koin (dummy: sem injeção pesada). */
-    private fun buildController(koin: Koin): SessionController = SessionController(
-        selector = koin.get<BackendSelector>(),
-        environment = AndroidBackendEnvironment(this, koin.get()),
-        brain = koin.get<Brain>(),
-        bus = koin.get(),
-        config = SessionConfig(),
-        scope = scope,
-        registry = koin.get<SessionRegistry>(),
-    )
+    /** Monta o grafo da sessão a partir do Koin (issue #59: config wiring). */
+    private fun buildController(koin: Koin): SessionController {
+        val configStore = koin.get<br.com.luizqueiroz.pwndroid.data.ConfigStore>()
+        return SessionController(
+            selector = koin.get<BackendSelector>(),
+            environment = AndroidBackendEnvironment(this, koin.get()),
+            brain = koin.get<Brain>(),
+            bus = koin.get(),
+            config = SessionConfig(),
+            scope = scope,
+            registry = koin.get<SessionRegistry>(),
+            // Modo configurado vale a partir da próxima época, sem restart
+            // (backendPreference NÃO é observado aqui: exige nova sessão).
+            modeUpdates = configStore.config.map { it.mode },
+        )
+    }
 
     private fun startForegroundCompat() {
         val notification = buildNotification()

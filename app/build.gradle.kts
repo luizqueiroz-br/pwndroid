@@ -40,6 +40,7 @@ dependencies {
     implementation(project(":core:mood"))
     implementation(project(":core:session"))
     implementation(project(":data"))
+    implementation(libs.datastore.preferences)
     implementation(project(":plugins:api"))
     implementation(project(":plugins:builtin"))
     implementation(project(":feature:display"))
