@@ -67,6 +67,19 @@ camada de abstração `RadioBackend`:
 - Cliente **oPwngrid** (api.pwnagotchi.ai): identidade ed25519, inbox, `report_ap` —
   interoperável com a comunidade Pi existente.
 
+### Validação dos fixtures de PCAP
+
+O golden `core/capture/src/test/resources/fixtures/wpa-Induction.pcap` é validado
+a cada push no job `pcap-validation` do CI: o `hcxpcapngtool` converte o pcap
+para o formato hashcat 22000 e o `hashcat -m 22000` recupera a senha conhecida
+(`Induction`) de um potfile isolado. Qualquer regressão no formato do pcap
+falha o CI. Para rodar a mesma validação localmente:
+
+```bash
+docker run --rm -v "$PWD":/work -w /work kalilinux/kali-rolling \
+  bash -c "apt-get update -qq && apt-get install -y -qq hcxtools hashcat >/dev/null && bash scripts/validate-pcap.sh"
+```
+
 ## Dispositivos suportados (modo root)
 
 Monitor mode no Android depende do chipset — verifique antes:
