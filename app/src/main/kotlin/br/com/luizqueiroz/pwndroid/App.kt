@@ -13,6 +13,9 @@ import br.com.luizqueiroz.pwndroid.core.common.RealAppClock
 import br.com.luizqueiroz.pwndroid.core.radio.BackendSelector
 import br.com.luizqueiroz.pwndroid.core.radio.FakeRadioBackend
 import br.com.luizqueiroz.pwndroid.core.radio.RadioBackend
+import br.com.luizqueiroz.pwndroid.core.radio.bettercap.BettercapBackend
+import br.com.luizqueiroz.pwndroid.core.radio.bettercap.BettercapInstaller
+import br.com.luizqueiroz.pwndroid.core.radio.bettercap.LibsuRootShell
 import br.com.luizqueiroz.pwndroid.core.radio.passive.AndroidSettingsOpener
 import br.com.luizqueiroz.pwndroid.core.radio.passive.AndroidSystemChecks
 import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveBackend
@@ -47,7 +50,9 @@ val coreModule = module {
 val radioModule = module {
     // Passivo primeiro (sem root, v0.1). O fake é fallback de desenvolvimento:
     // como declara capacidades completas, sempre venceria o selector — só
-    // entra em debug. Backends com root (bettercap/nexmon) chegam no Épico 6/9.
+    // entra em debug. Bettercap (root, issue #19) entra como candidato:
+    // o RootShell falha com RootUnavailableException em devices sem root
+    // e o selector degrada para o passivo com a causa no erro da sessão.
     single<List<RadioBackend>> {
         val app = androidApplication()
         val debuggable = (app.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -56,6 +61,25 @@ val radioModule = module {
                 deps = PassiveDependencies(app),
                 checks = AndroidSystemChecks(app),
                 settingsOpener = AndroidSettingsOpener(app),
+            ),
+        )
+        // Bettercap root (issue #19): binário via jniLibs, instalado em
+        // /data/local/tmp no start (a API REST/WS chega na #20; aqui o
+        // candidato valida root + binário e falha rápido sem root, sem
+        // crash — o selector degrada para o passivo).
+        backends.add(
+            BettercapBackend(
+                shell = LibsuRootShell(),
+                installer = BettercapInstaller(
+                    // default: Build.SUPPORTED_ABIS no device real.
+                    shell = LibsuRootShell(),
+                ),
+                apkBinaryProvider = {
+                    BettercapInstaller.apkBinary(
+                        context = androidApplication(),
+                        abi = android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a",
+                    )
+                },
             ),
         )
         // O fake declara capacidades completas e sempre venceria o selector:
