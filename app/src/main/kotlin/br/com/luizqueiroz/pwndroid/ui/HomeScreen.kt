@@ -14,11 +14,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import br.com.luizqueiroz.pwndroid.core.mood.FaceState
 import br.com.luizqueiroz.pwndroid.core.mood.Mood
 import br.com.luizqueiroz.pwndroid.core.session.EpochPhase
 import br.com.luizqueiroz.pwndroid.core.session.SessionUiState
+import br.com.luizqueiroz.pwndroid.feature.display.FaceFrame
 import br.com.luizqueiroz.pwndroid.feature.display.FaceRenderer
+import br.com.luizqueiroz.pwndroid.feature.display.FaceUiState
 
 /**
  * Home mínima da issue #8 (stub; a real é a issue #13): start/stop do
@@ -40,9 +41,16 @@ fun HomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
             FaceRenderer(
-                face = FaceState(Mood.LONELY, "(⌒▽⌒)", "Estou sozinho, procurando redes…"),
-                uptimeText = "época ${ui.session.epoch}",
-                handshakesCount = ui.session.handshakes,
+                state = FaceUiState(
+                    frame = FaceFrame(
+                        mood = Mood.LONELY,
+                        expression = "(╯°□°)╯",
+                        lines = listOf("Estou sozinho, procurando redes…"),
+                        mode = "auto",
+                        peers = 0,
+                        handshakes = ui.session.handshakes,
+                    ),
+                ),
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
