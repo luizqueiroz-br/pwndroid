@@ -21,10 +21,16 @@ dependencies {
     implementation(project(":core:common"))
     implementation(libs.libsu.core)
     implementation(libs.kotlinx.coroutines.core)
+    // API REST/WS do bettercap (issue #20): Ktor client + WS.
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.websockets)
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
     testImplementation(libs.turbine)
     testImplementation(libs.kotest.assertions)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
 }
