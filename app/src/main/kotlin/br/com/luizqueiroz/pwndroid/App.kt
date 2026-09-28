@@ -80,6 +80,8 @@ val radioModule = module {
                         abi = android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a",
                     )
                 },
+                clock = get(),
+                logger = get(),
             ),
         )
         // O fake declara capacidades completas e sempre venceria o selector:

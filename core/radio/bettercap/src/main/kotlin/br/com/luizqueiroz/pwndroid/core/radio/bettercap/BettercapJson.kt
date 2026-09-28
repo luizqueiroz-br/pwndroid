@@ -1,5 +1,7 @@
 package br.com.luizqueiroz.pwndroid.core.radio.bettercap
 
+import br.com.luizqueiroz.pwndroid.core.model.AccessPoint
+import br.com.luizqueiroz.pwndroid.core.model.MacAddress
 import br.com.luizqueiroz.pwndroid.core.model.RadioEvent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -121,6 +123,45 @@ data class BettercapEvent(
     val tag: String,
     val payload: JsonObject,
 )
+
+/**
+ * Mapeamento de [BettercapSession] (API REST) → domínio (issue #21):
+ * snapshot de `accessPoints()` do [BettercapStarted].
+ */
+object SessionMapper {
+
+    /** APs do recon bettercap → domínio, com clientes aninhados. */
+    fun toDomainAccessPoints(session: BettercapSession, nowMillis: Long): List<AccessPoint> {
+        val stationsByAp = session.stations
+            .filter { it.apMac != null }
+            .groupBy(
+                keySelector = { it.apMac!!.uppercase() },
+                valueTransform = { sta ->
+                    br.com.luizqueiroz.pwndroid.core.model.Station(
+                        mac = MacAddress.parse(sta.mac),
+                        rssi = sta.rssi,
+                        apMac = sta.apMac?.let { MacAddress.parse(it) },
+                    )
+                },
+            )
+        return session.accessPoints.map { ap ->
+            AccessPoint(
+                mac = MacAddress.parse(ap.mac),
+                ssid = ap.essid?.takeIf { it.isNotBlank() },
+                rssi = ap.rssi,
+                channel = ap.channel,
+                frequencyMhz = ap.frequency,
+                encryption = ap.encryption,
+                clients = stationsByAp[ap.mac.uppercase()] ?: emptyList(),
+                // Timestamps do bettercap são strings de data (UTC): o
+                // domínio quer millis — o `nowMillis` marca o snapshot
+                // (first/lastSeen do recon corrente).
+                firstSeen = nowMillis,
+                lastSeen = nowMillis,
+            )
+        }
+    }
+}
 
 /**
  * Mapeamento de eventos bettercap → [RadioEvent] (issue #20), 1:1 contra

@@ -1,5 +1,6 @@
 package br.com.luizqueiroz.pwndroid.core.radio.bettercap
 
+import br.com.luizqueiroz.pwndroid.core.common.AppClock
 import br.com.luizqueiroz.pwndroid.core.radio.BackendId
 import br.com.luizqueiroz.pwndroid.core.radio.BackendUnavailableException
 import java.io.File
@@ -70,6 +71,8 @@ class RootShellTest {
             shell = shell,
             installer = installer,
             apkBinaryProvider = { fakeBinary() },
+            clock = fakeClock(),
+            apiFactory = { _, _, _, _ -> FakeBettercapApi() },
         )
         val started = backend.start(fakeEnv())
         assertEquals(BackendId.BETTERCAP, started.backendId)
@@ -85,7 +88,13 @@ class RootShellTest {
     fun `start sem root lança BackendUnavailable sem executar nada`() = runTest {
         val shell = FakeShell(rootAvailable = false)
         val installer = BettercapInstaller(shell, abis = listOf("arm64-v8a"))
-        val backend = BettercapBackend(shell, installer, apkBinaryProvider = { fakeBinary() })
+        val backend = BettercapBackend(
+            shell = shell,
+            installer = installer,
+            apkBinaryProvider = { fakeBinary() },
+            clock = fakeClock(),
+            apiFactory = { _, _, _, _ -> FakeBettercapApi() },
+        )
         val error = runCatching {
             backend.start(fakeEnv())
         }.exceptionOrNull()
@@ -121,7 +130,13 @@ class RootShellTest {
             ),
         )
         val installer = BettercapInstaller(shell, abis = listOf("arm64-v8a"))
-        val backend = BettercapBackend(shell, installer, apkBinaryProvider = { fakeBinary() })
+        val backend = BettercapBackend(
+            shell = shell,
+            installer = installer,
+            apkBinaryProvider = { fakeBinary() },
+            clock = fakeClock(),
+            apiFactory = { _, _, _, _ -> FakeBettercapApi() },
+        )
         val error = runCatching { backend.start(fakeEnv()) }
             .exceptionOrNull()
         assertTrue(error is RootUnavailableException.SelinuxBlocked)
@@ -152,6 +167,13 @@ class RootShellTest {
         }
     }
 
+    /** Clock mínimo para o construtor do backend. */
+    private fun fakeClock(): AppClock = object : AppClock {
+        override fun nowMillis() = 0L
+        override val io = kotlinx.coroutines.Dispatchers.Unconfined
+        override val default = kotlinx.coroutines.Dispatchers.Unconfined
+    }
+
     @Test
     fun `cleanup remove apenas o diretório temporário`() = runTest {
         val shell = FakeShell()
@@ -160,3 +182,20 @@ class RootShellTest {
         assertEquals(listOf("rm -rf '/data/local/tmp/pwndroid'"), shell.commands)
     }
 }
+
+/** API fake compartilhada pelos testes de bootstrap (#21). */
+private class FakeBettercapApi : BettercapApi {
+    override suspend fun run(command: String): Result<Unit> = Result.success(Unit)
+
+    override suspend fun session(): Result<BettercapSession> =
+        Result.success(BettercapSession(emptyList(), emptyList()))
+
+    override suspend fun events(): Result<WsSession> =
+        Result.success(object : WsSession {
+            override suspend fun receive(): String? = null
+            override fun close() = Unit
+        })
+
+    override fun close() = Unit
+}
+
