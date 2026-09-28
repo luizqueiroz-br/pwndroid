@@ -66,6 +66,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.turbine)
+    testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.kotest.assertions)
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)

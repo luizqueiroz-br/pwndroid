@@ -66,12 +66,22 @@ class SessionController(
     private var modeWatcher: Job? = null
 
     /** Inicia a sessão no [mode]; ignorado enquanto uma sessão já roda. */
-    fun start(mode: PwnMode = PwnMode.AUTO, maxEpochs: Long = Long.MAX_VALUE) {
+    fun start(
+        mode: PwnMode = PwnMode.AUTO,
+        maxEpochs: Long = Long.MAX_VALUE,
+        /**
+         * Backend preferido (config do usuário, issue #13): passado ao
+         * selector no start. Trocar a preferência com sessão rodando não
+         * afeta a sessão atual — o backend é selecionado só aqui, vale
+         * até o stop (a próxima sessão lê a config de novo).
+         */
+        preferredBackend: BackendId? = null,
+    ) {
         if (running) return
         running = true
         scope.launch {
             if (!running) return@launch
-            val backend = runCatching { selector.select(environment) }.getOrNull()
+            val backend = runCatching { selector.select(environment, preferredBackend) }.getOrNull()
             if (backend == null) {
                 running = false
                 _state.value = SessionUiState(error = "nenhum backend de rádio disponível neste device")

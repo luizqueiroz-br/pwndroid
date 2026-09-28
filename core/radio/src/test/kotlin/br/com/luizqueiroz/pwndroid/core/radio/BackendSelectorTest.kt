@@ -96,4 +96,33 @@ class BackendSelectorTest {
         val selector = BackendSelector(listOf(BrokenBackend(BackendId.NEXMON, RadioCapabilities())))
         assertNull(selector.select(env()))
     }
+
+    /** Issue #13: preferido é tentado primeiro mesmo com menos capacidades. */
+    @Test
+    fun `preferido sobe primeiro mesmo com menos capacidades`() = runTest {
+        val passive = WorkingBackend(BackendId.PASSIVE, RadioCapabilities(canRecon = true))
+        val rich = WorkingBackend(
+            BackendId.BETTERCAP,
+            RadioCapabilities(
+                canRecon = true, canAssoc = true, canDeauth = true,
+                canCaptureEapol = true, canCapturePmkid = true, canSetChannel = true,
+            ),
+        )
+        val selector = BackendSelector(listOf(rich, passive))
+        val selected = selector.select(env(), preferred = BackendId.PASSIVE)
+
+        assertEquals(passive.startedInstance, selected)
+    }
+
+    /** Issue #13: preferido indisponível cai para a ordem de capacidades. */
+    @Test
+    fun `preferido quebrado cai para o automático`() = runTest {
+        val broken = BrokenBackend(BackendId.BETTERCAP, RadioCapabilities(canRecon = true))
+        val passive = WorkingBackend(BackendId.PASSIVE, RadioCapabilities(canRecon = true))
+        val selector = BackendSelector(listOf(passive, broken))
+        val selected = selector.select(env(), preferred = BackendId.BETTERCAP)
+
+        assertEquals(passive.startedInstance, selected)
+    }
+
 }

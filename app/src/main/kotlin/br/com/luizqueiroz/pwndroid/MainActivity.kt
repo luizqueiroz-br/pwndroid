@@ -22,15 +22,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.FileProvider
+import br.com.luizqueiroz.pwndroid.core.model.PwnMode
 import br.com.luizqueiroz.pwndroid.core.session.SessionRegistry
+import br.com.luizqueiroz.pwndroid.data.ConfigStore
 import br.com.luizqueiroz.pwndroid.data.WhitelistRepository
 import br.com.luizqueiroz.pwndroid.data.WardriveRepository
 import br.com.luizqueiroz.pwndroid.service.PwnForegroundService
-import br.com.luizqueiroz.pwndroid.ui.HomeScreen
 import br.com.luizqueiroz.pwndroid.ui.handshakes.HandshakesScreen
+import br.com.luizqueiroz.pwndroid.ui.home.HomeActions
+import br.com.luizqueiroz.pwndroid.ui.home.HomeConfig
+import br.com.luizqueiroz.pwndroid.ui.home.HomeScreen
+import br.com.luizqueiroz.pwndroid.ui.home.HomeState
 import br.com.luizqueiroz.pwndroid.ui.wardrive.AccessPointDetailDialog
 import br.com.luizqueiroz.pwndroid.ui.wardrive.WardriveScreen
 import br.com.luizqueiroz.pwndroid.ui.wardrive.WardriveState
+import br.com.luizqueiroz.pwndroid.core.radio.BackendId
+import br.com.luizqueiroz.pwndroid.core.radio.RadioBackend
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -42,13 +49,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val koin = GlobalContext.get()
         val registry = koin.get<SessionRegistry>()
-        val repo = koin.get<WardriveRepository>()
-        val whitelist = koin.get<WhitelistRepository>()
-        val state = WardriveState(repo, whitelist)
+        val state = WardriveState(repo = koin.get<WardriveRepository>(), whitelist = koin.get<WhitelistRepository>())
+        val configStore = koin.get<ConfigStore>()
+        val backends = koin.get<List<RadioBackend>>()
+        val bus = koin.get<br.com.luizqueiroz.pwndroid.core.common.EventBus>()
+        val home = HomeState(registry, bus)
 
         setContent {
             MaterialTheme {
-                AppTabs(registry, state, this)
+                AppTabs(home, configStore, backends, registry, state, this)
             }
         }
     }
@@ -93,14 +102,23 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 private fun AppTabs(
+    home: HomeState,
+    configStore: ConfigStore,
+    backends: List<RadioBackend>,
     registry: SessionRegistry,
     wardrive: WardriveState,
     activity: MainActivity,
 ) {
     val ui by registry.state.collectAsState()
     val running = ui.backend != null
+    val backendIds = remember(backends) { backends.map { it.id } }
     val apsFlow = remember { wardrive.aps() }
     val aps by apsFlow.collectAsState(initial = emptyList())
+    val face by home.face.collectAsState()
+    val mood by home.mood.collectAsState()
+    val config by remember { configStore.config }.collectAsState(initial = null)
+
+    FaceTicker(home)
 
     var selectedTab by remember { mutableStateOf(0) }
     var detailMac by remember { mutableStateOf<String?>(null) }
@@ -117,11 +135,13 @@ private fun AppTabs(
                 Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }, text = { Text("Handshakes") })
             }
             when (selectedTab) {
-                0 -> HomeScreen(
-                    ui = ui,
+                0 -> HomeTab(
+                    home = home,
+                    registry = registry,
+                    backends = backendIds,
+                    configStore = configStore,
                     running = running,
-                    onStart = { PwnForegroundService.start(activity) },
-                    onStop = { PwnForegroundService.stop(activity) },
+                    activity = activity,
                     modifier = Modifier.padding(padding),
                 )
                 2 -> HandshakesScreen(modifier = Modifier.padding(padding))
@@ -184,3 +204,67 @@ private fun AccessPointDetailHost(
         )
     }
 }
+
+/**
+ * Tab Home da issue #13: coleciona o estado facial (HomeState), a config
+ * (modo/backend) e monta as [HomeActions] — start/stop do serviço e
+ * persistência das escolhas no ConfigStore.
+ */
+@Composable
+private fun HomeTab(
+    home: HomeState,
+    registry: SessionRegistry,
+    backends: List<BackendId>,
+    configStore: ConfigStore,
+    running: Boolean,
+    activity: MainActivity,
+    modifier: Modifier = Modifier,
+) {
+    val ui by registry.state.collectAsState()
+    val face by home.face.collectAsState()
+    val mood by home.mood.collectAsState()
+    val config by remember { configStore.config }.collectAsState(initial = null)
+    val scope = rememberCoroutineScope()
+
+    HomeScreen(
+        face = face,
+        mood = mood,
+        ui = ui,
+        running = running,
+        config = HomeConfig(
+            mode = config?.mode ?: PwnMode.AUTO,
+            backendPreference = config?.backendPreference,
+            availableBackends = backends,
+        ),
+        actions = HomeActions(
+            onStart = { PwnForegroundService.start(activity) },
+            onStop = { PwnForegroundService.stop(activity) },
+            onModeSelected = { mode ->
+                scope.launch { configStore.setMode(mode) }
+            },
+            onBackendSelected = { backend ->
+                scope.launch { configStore.setBackendPreference(backend) }
+            },
+        ),
+        modifier = modifier,
+    )
+}
+
+/**
+ * Ticker de 1 FPS da face (issue #13): assina o bus via [HomeState.observe]
+ * e marca o blink a cada segundo (faceTicker de feature/display).
+ */
+@Composable
+private fun FaceTicker(home: HomeState) {
+    LaunchedEffect(home) {
+        val ticker = launch {
+            while (true) {
+                home.tick()
+                kotlinx.coroutines.delay(1_000)
+            }
+        }
+        home.observe(this)
+        ticker.join()
+    }
+}
+

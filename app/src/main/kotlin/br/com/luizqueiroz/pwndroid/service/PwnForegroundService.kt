@@ -80,8 +80,12 @@ class PwnForegroundService : Service() {
                     val configStore = koin.get<ConfigStore>()
                     acquireLocks()
                     val newController = buildController(koin).also { controller = it }
-                    // Modo inicial vem da config (primeira emissão do fluxo).
-                    scope.launch { newController.start(configStore.config.first().mode) }
+                    // Modo e backend preferido vêm da config (primeira emissão
+                    // do fluxo): o backend preferido vale no start (issue #13).
+                    scope.launch {
+                        val config = configStore.config.first()
+                        newController.start(config.mode, preferredBackend = config.backendPreference)
+                    }
                     watchState(koin)
                     batteryMonitor = BatteryMonitor(
                         context = this,
