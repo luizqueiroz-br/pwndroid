@@ -3,6 +3,7 @@ package br.com.luizqueiroz.pwndroid
 import android.app.Application
 import android.content.pm.ApplicationInfo
 import br.com.luizqueiroz.pwndroid.core.brain.Brain
+import br.com.luizqueiroz.pwndroid.core.brain.ConfigBrain
 import br.com.luizqueiroz.pwndroid.core.brain.FixedBrain
 import br.com.luizqueiroz.pwndroid.core.common.AppClock
 import br.com.luizqueiroz.pwndroid.core.common.AppLogger
@@ -17,9 +18,16 @@ import br.com.luizqueiroz.pwndroid.core.radio.passive.AndroidSystemChecks
 import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveBackend
 import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveDependencies
 import br.com.luizqueiroz.pwndroid.core.session.SessionRegistry
+import br.com.luizqueiroz.pwndroid.data.ConfigStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.map
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.Koin
+import org.koin.core.context.GlobalContext
+import org.koin.core.qualifier.named
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 
@@ -58,7 +66,16 @@ val radioModule = module {
 
 val brainModule = module {
     // Thompson Sampling chega na issue #12; FixedBrain é o padrão provisório.
-    single<Brain> { FixedBrain() }
+    // ConfigBrain (issue #59): personalidade configurada vale na próxima
+    // época, sem restart — delegate é o cérebro que aprende; só a
+    // personality é sobreposta pelo config Flow.
+    single<Brain> {
+        val store = get<ConfigStore>()
+        ConfigBrain(
+            delegate = FixedBrain(),
+            personalityUpdates = store.config.map { it.personality },
+        )
+    }
 }
 
 val sessionModule = module {
@@ -67,7 +84,19 @@ val sessionModule = module {
 }
 
 val dataModule = module {
-    // Room/DataStore (issue #9).
+    // ConfigStore sobre DataStore Preferences (issue #16, wiring na #59).
+    // Scope dedicado: vive enquanto o processo vive.
+    single {
+        ConfigStore(
+            store = androidx.datastore.preferences.core.PreferenceDataStoreFactory.create(
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                produceFile = {
+                    androidApplication().getFileStreamPath("pwndroid_config.preferences_pb")
+                },
+            ),
+            logger = get(),
+        )
+    }
 }
 
 val pluginsModule = module {

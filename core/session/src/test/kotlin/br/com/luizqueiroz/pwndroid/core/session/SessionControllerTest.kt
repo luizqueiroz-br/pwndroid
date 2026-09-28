@@ -3,6 +3,7 @@ package br.com.luizqueiroz.pwndroid.core.session
 import br.com.luizqueiroz.pwndroid.core.brain.FixedBrain
 import br.com.luizqueiroz.pwndroid.core.common.AppClock
 import br.com.luizqueiroz.pwndroid.core.common.EventBus
+import br.com.luizqueiroz.pwndroid.core.model.PwnMode
 import br.com.luizqueiroz.pwndroid.core.radio.BackendId
 import br.com.luizqueiroz.pwndroid.core.radio.BackendSelector
 import br.com.luizqueiroz.pwndroid.core.radio.FakeRadioBackend
@@ -98,5 +99,55 @@ class SessionControllerTest {
 
         assertEquals(BackendId.FAKE, controller.state.value.backend)
         assertEquals(2, controller.state.value.session.epoch)
+    }
+
+    @Test
+    fun `modeUpdates em sessão rodando troca o modo sem restart`() = runTest {
+        val modeUpdates = kotlinx.coroutines.flow.MutableStateFlow(PwnMode.MANUAL)
+        val clock = ManualClock()
+        val backend = FakeRadioBackend(clock)
+        // Gate: a ÉPOCA 2 trava no waitFor até o teste trocar o modo via
+        // modeUpdates (issue #59) — prova propagação sem restart.
+        val releaseEpoch2 = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var waitCalls = 0
+        val controller = SessionController(
+            selector = BackendSelector(listOf(backend)),
+            environment = env(),
+            brain = FixedBrain(),
+            bus = EventBus(),
+            scope = CoroutineScope(StandardTestDispatcher(testScheduler)),
+            waitFor = { _ ->
+                if (waitCalls == 1) {
+                    releaseEpoch2.await()
+                } else {
+                    waitCalls++
+                }
+            },
+            modeUpdates = modeUpdates,
+        )
+        backend.script.ap("AA:BB:CC:00:00:01", ssid = "alvo", channel = 1)
+
+        controller.start(maxEpochs = 2)
+        testScheduler.advanceUntilIdle()
+        // MANUAL: época 1 só recon (a 2ª está travada no gate).
+        assertEquals(1, controller.state.value.session.epoch)
+        assertTrue(
+            backend.operations.none { it.startsWith("assoc") },
+        )
+
+        // Config muda para AUTO → época 2 interage (sem restart).
+        modeUpdates.value = PwnMode.AUTO
+        backend.script
+            .ap("AA:BB:CC:00:00:02", ssid = "novo", channel = 6)
+            .station("AA:BB:CC:00:00:02", "AA:BB:CC:00:00:09")
+        releaseEpoch2.complete(Unit)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(2, controller.state.value.session.epoch)
+        // A época 2 interage (AUTO) — a 1 em MANUAL não interagiu.
+        assertTrue(
+            backend.operations.any { it.startsWith("assoc:") },
+        )
+        controller.stop()
     }
 }

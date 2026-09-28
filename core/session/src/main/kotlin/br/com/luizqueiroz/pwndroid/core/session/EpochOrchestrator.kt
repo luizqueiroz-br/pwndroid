@@ -70,6 +70,15 @@ class EpochOrchestrator(
         _state.value = _state.value.copy(phase = EpochPhase.IDLE)
     }
 
+    /**
+     * Troca o modo em sessão rodando — vale a partir da PRÓXIMA época (issue
+     * #59): o loop lê `_state.value.mode` ao fim de cada `runEpoch` para
+     * decidir entre interagir e só recon. Seguro chamar antes/sem sessão.
+     */
+    fun setMode(mode: PwnMode) {
+        _state.value = _state.value.copy(mode = mode)
+    }
+
     private suspend fun runEpoch(scope: CoroutineScope) {
         val candidates = mutableListOf<Target>()
         var handshakes = 0

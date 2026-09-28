@@ -15,9 +15,10 @@ naming:
 complexity:
   LongParameterList:
     # Builder fluente do FakeRadioBackend usa >6 parâmetros com defaults;
-    # SessionController leva o grafo da sessão no construtor.
+    # SessionController leva o grafo da sessão no construtor — com o
+    # modeUpdates (issue #59) são 10 dependências opcionais com default.
     functionThreshold: 8
-    constructorThreshold: 9
+    constructorThreshold: 10
 exceptions:
   TooGenericExceptionCaught:
     active: false

@@ -62,9 +62,13 @@ data class AppConfig(
 
 /**
  * ConfigStore sobre DataStore Preferences (issue #16): API reativa via
- * [config] Flow. A personalidade aplicável à próxima época e o modo valem
- * quando o observador (SessionController) ler o Flow; a preferência de
- * backend vale na próxima sessão (issue #59 faz o wiring).
+ * [config] Flow. Wiring real (issue #59): a [AppConfig.personality] é
+ * aplicada à próxima época via `ConfigBrain` (em `:core:brain`, injetado
+ * pelo `:app`); o [AppConfig.mode] vale a partir da próxima época via
+ * `modeUpdates` no `SessionController` (conectado pelo FGS). A
+ * preferência de backend ([AppConfig.backendPreference]) vale apenas na
+ * PRÓXIMA sessão — o backend é selecionado só no start e não é trocado em
+ * sessão rodando.
  *
  * Erros de leitura: arquivo corrompido ([CorruptionException]) loga erro e
  * emite defaults (config degradada, NÃO silenciosa); I/O transiente usa o
