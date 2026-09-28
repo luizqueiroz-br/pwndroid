@@ -25,7 +25,8 @@ import kotlinx.coroutines.yield
  * interações (assoc/deauth) → report ao cérebro e humores.
  *
  * Modos: [PwnMode.MANUAL] recon apenas (nunca interage);
- * [PwnMode.AUTO] ciclo completo; [PwnMode.PASSIVE] igual ao manual.
+ * [PwnMode.AUTO] ciclo completo; [PwnMode.AI] igual ao AUTO, mas o cérebro
+ * decide a personalidade por aprendizado; [PwnMode.PASSIVE] igual ao manual.
  */
 class EpochOrchestrator(
     private val backend: StartedBackend,
@@ -133,7 +134,7 @@ class EpochOrchestrator(
         backend.stopRecon()
         collector.cancel()
 
-        if (_state.value.mode == PwnMode.AUTO) {
+        if (_state.value.mode == PwnMode.AUTO || _state.value.mode == PwnMode.AI) {
             interact(personality, candidates)
         }
 

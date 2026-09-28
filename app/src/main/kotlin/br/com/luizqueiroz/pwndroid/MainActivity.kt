@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
         val configStore = koin.get<ConfigStore>()
         val backends = koin.get<List<RadioBackend>>()
         val bus = koin.get<br.com.luizqueiroz.pwndroid.core.common.EventBus>()
-        val home = HomeState(registry, bus)
+        val home = HomeState(registry, bus, brain = koin.get())
         val rootDetector = RootDetector()
 
         setContent {
@@ -416,6 +416,7 @@ private fun HomeTab(
     val face by home.face.collectAsState()
     val mood by home.mood.collectAsState()
     val config by remember { configStore.config }.collectAsState(initial = null)
+    val brainState by home.brainState.collectAsState()
     val scope = rememberCoroutineScope()
 
     HomeScreen(
@@ -427,6 +428,7 @@ private fun HomeTab(
             mode = config?.mode ?: PwnMode.AUTO,
             backendPreference = config?.backendPreference,
             availableBackends = backends,
+            brain = brainState,
         ),
         actions = HomeActions(
             onStart = { PwnForegroundService.start(activity) },

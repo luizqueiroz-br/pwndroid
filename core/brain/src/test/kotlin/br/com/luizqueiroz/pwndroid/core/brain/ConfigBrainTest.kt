@@ -5,7 +5,8 @@ import br.com.luizqueiroz.pwndroid.core.model.Target
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -27,6 +28,9 @@ class ConfigBrainTest {
         }
 
         override val diagnostics: Flow<String> = MutableSharedFlow()
+
+        private val _state = MutableStateFlow(BrainSnapshot(id = id))
+        override val state: StateFlow<BrainSnapshot> = _state.asStateFlow()
     }
 
     @Test
@@ -63,4 +67,34 @@ class ConfigBrainTest {
         val brain = ConfigBrain(delegate, MutableStateFlow(Personality()))
         assertTrue(brain.diagnostics === delegate.diagnostics)
     }
+
+    @Test
+    fun `snapshot mostra persona configurada e desfecho da última época`() = runTest {
+        val updates = MutableStateFlow(Personality(reconTimeSec = 42, deauthCount = 7))
+        val brain = ConfigBrain(DelegateBrain(), updates)
+
+        // Antes de qualquer época: snapshot com id do wrapper e sem persona.
+        assertEquals("config(delegate)", brain.state.value.id)
+        assertEquals(null, brain.state.value.personality)
+
+        // nextPersonality cacheia a persona configurada.
+        brain.nextPersonality()
+        assertEquals(42L, brain.state.value.personality?.reconTimeSec)
+        assertEquals(7, brain.state.value.personality?.deauthCount)
+
+        // reportEpochResult espelha o lastEpoch do delegate com a persona sobreposta.
+        val result = EpochResult(2, 1, 3, 2.5)
+        brain.reportEpochResult(result)
+        assertEquals(result, brain.state.value.lastEpoch)
+        assertEquals(42L, brain.state.value.personality?.reconTimeSec)
+
+        // Persona muda na config → report seguinte publica a nova.
+        updates.value = Personality(reconTimeSec = 77)
+        brain.nextPersonality()
+        brain.reportEpochResult(EpochResult(0, 0, 0, 0.0))
+        assertEquals(77L, brain.state.value.personality?.reconTimeSec)
+        assertEquals(EpochResult(0, 0, 0, 0.0), brain.state.value.lastEpoch)
+    }
 }
+
+

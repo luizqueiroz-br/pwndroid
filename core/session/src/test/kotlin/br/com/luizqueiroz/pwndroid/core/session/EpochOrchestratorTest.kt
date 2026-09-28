@@ -1,7 +1,9 @@
 package br.com.luizqueiroz.pwndroid.core.session
 
 import br.com.luizqueiroz.pwndroid.core.brain.Brain
+import br.com.luizqueiroz.pwndroid.core.brain.BrainSnapshot
 import br.com.luizqueiroz.pwndroid.core.brain.EpochResult
+import br.com.luizqueiroz.pwndroid.core.brain.FixedBrain
 import br.com.luizqueiroz.pwndroid.core.common.AppClock
 import br.com.luizqueiroz.pwndroid.core.common.EventBus
 import br.com.luizqueiroz.pwndroid.core.model.Personality
@@ -14,6 +16,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
@@ -49,11 +54,14 @@ class EpochOrchestratorTest {
         }
 
         override val diagnostics: Flow<String> = MutableSharedFlow()
+
+        private val _state = MutableStateFlow(BrainSnapshot(id = "scripted"))
+        override val state: StateFlow<BrainSnapshot> = _state.asStateFlow()
     }
 
     private fun newOrchestrator(
         backend: FakeRadioBackend,
-        brain: ScriptedBrain,
+        brain: Brain,
         clock: ManualClock,
         config: SessionConfig = SessionConfig(),
     ): EpochOrchestrator = run {
@@ -226,4 +234,75 @@ class EpochOrchestratorTest {
         assertTrue(backend.operations.any { it.startsWith("assoc:") })
         orch.stop()
     }
+
+    /** Spy sobre FixedBrain: registra as chamadas do orquestrador (issue #26). */
+    private class SpyBrain(private val delegate: FixedBrain) : Brain by delegate {
+        var nextPersonalityCalls = 0
+            private set
+        var selectTargetCalls = 0
+            private set
+        var reportedResults = mutableListOf<EpochResult>()
+            private set
+
+        override suspend fun nextPersonality(): Personality {
+            nextPersonalityCalls++
+            return delegate.nextPersonality()
+        }
+
+        override suspend fun selectTarget(candidates: List<Target>): Target? {
+            selectTargetCalls++
+            return delegate.selectTarget(candidates)
+        }
+
+        override suspend fun reportEpochResult(result: EpochResult) {
+            reportedResults.add(result)
+            delegate.reportEpochResult(result)
+        }
+    }
+
+    @Test
+    fun `orquestrador consome o Brain sem conhecer a implementação - spy de FixedBrain`() = runTest {
+        val clock = ManualClock()
+        val backend = FakeRadioBackend(clock)
+        val spy = SpyBrain(FixedBrain())
+        val orch = newOrchestrator(backend, spy, clock)
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+
+        backend.script
+            .ap("AA:BB:CC:00:00:01", ssid = "alvo", channel = 1)
+            .station("AA:BB:CC:00:00:01", "AA:BB:CC:00:00:09")
+
+        orch.start(scope, PwnMode.AUTO, maxEpochs = 1)
+        testScheduler.advanceUntilIdle()
+
+        // O orquestrador usou apenas a interface Brain.
+        assertEquals(1, spy.nextPersonalityCalls)
+        // selectTarget é consultado a cada tentativa de interação da época —
+        // pode ser chamado mais de uma vez; o que importa é que foi consultado.
+        assertTrue(spy.selectTargetCalls >= 1)
+        assertEquals(1, spy.reportedResults.size)
+        assertTrue(spy.reportedResults[0].interactionsAttempted > 0)
+        orch.stop()
+    }
+
+    @Test
+    fun `modo AI interage como AUTO`() = runTest {
+        val clock = ManualClock()
+        val backend = FakeRadioBackend(clock)
+        val brain = ScriptedBrain()
+        val orch = newOrchestrator(backend, brain, clock)
+        val scope = CoroutineScope(StandardTestDispatcher(testScheduler))
+
+        backend.script
+            .ap("AA:BB:CC:00:00:01", ssid = "alvo", channel = 1)
+            .station("AA:BB:CC:00:00:01", "AA:BB:CC:00:00:09")
+
+        orch.start(scope, PwnMode.AI, maxEpochs = 1)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(backend.operations.any { it.startsWith("assoc:aa:bb:cc:00:00:01") })
+        assertTrue(backend.operations.any { it.startsWith("deauth:") })
+        orch.stop()
+    }
 }
+

@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import br.com.luizqueiroz.pwndroid.core.brain.BrainSnapshot
 import br.com.luizqueiroz.pwndroid.core.mood.Mood
 import br.com.luizqueiroz.pwndroid.core.model.PwnMode
 import br.com.luizqueiroz.pwndroid.core.radio.BackendId
@@ -64,6 +65,7 @@ fun HomeScreen(
         FacePanel(face)
         MoodChip(mood)
         SessionStats(ui)
+        BrainCard(config.brain)
         ModeSelector(config.mode, actions.onModeSelected)
         BackendSelector(
             available = config.availableBackends,
@@ -136,6 +138,38 @@ internal fun moodChipOf(mood: Mood): Pair<String, Color> = when (mood) {
     Mood.EXCITED, Mood.GRATEFUL, Mood.HAPPY -> "👍 ${mood.name.lowercase()}" to Color(0xFF43A047)
     Mood.SAD, Mood.BORED, Mood.LONELY -> "😐 ${mood.name.lowercase()}" to Color(0xFF9E9E9E)
     Mood.ANGRY -> "😠 ${mood.name.lowercase()}" to Color(0xFFE53935)
+}
+
+/**
+ * Cartão do cérebro em operação (issue #26): id, personalidade vigente e
+ * o desfecho da última época — sem expor a implementação.
+ */
+@Composable
+private fun BrainCard(snapshot: BrainSnapshot?, modifier: Modifier = Modifier) {
+    if (snapshot == null) return
+    Column(modifier = modifier.semantics {
+        contentDescription = "Cérebro ${snapshot.id} em operação"
+    }) {
+        Text("Cérebro", style = MaterialTheme.typography.labelMedium)
+        Text(
+            "id=${snapshot.id}",
+            fontSize = 12.sp,
+        )
+        snapshot.personality?.let { persona ->
+            Text(
+                "recon=${persona.reconTimeSec}s max_interactions=${persona.maxInteractions}" +
+                    " deauth=${persona.deauthCount}",
+                fontSize = 12.sp,
+            )
+        }
+        snapshot.lastEpoch?.let { last ->
+            Text(
+                "última época: hs=${last.handshakesCaptured} pmkid=${last.pmkidCaptured}" +
+                    " interações=${last.interactionsAttempted} reward=${last.reward}",
+                fontSize = 12.sp,
+            )
+        }
+    }
 }
 
 

@@ -3,6 +3,9 @@ package br.com.luizqueiroz.pwndroid.core.brain
 import br.com.luizqueiroz.pwndroid.core.model.Personality
 import br.com.luizqueiroz.pwndroid.core.model.Target
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 
 /**
@@ -24,14 +27,35 @@ class ConfigBrain(
 
     override val id: String = "config(${delegate.id})"
 
-    /** Personalidade configurada mais recente — vale nesta época. */
-    override suspend fun nextPersonality(): Personality = personalityUpdates.first()
+    /** Persona configurada mais recente (cacheada para o snapshot entre épocas). */
+    private var configuredPersona: Personality? = null
+
+    /** Personalidade configurada — vale nesta época. */
+    override suspend fun nextPersonality(): Personality =
+        personalityUpdates.first().also { persona ->
+            configuredPersona = persona
+            // A persona é vigente a partir de agora: publica no snapshot
+            // para a UI ver a persona da época corrente (issue #26).
+            _state.value = _state.value.copy(id = id, personality = persona)
+        }
 
     override suspend fun selectTarget(candidates: List<Target>): Target? =
         delegate.selectTarget(candidates)
 
-    override suspend fun reportEpochResult(result: EpochResult) =
+    override suspend fun reportEpochResult(result: EpochResult) {
         delegate.reportEpochResult(result)
+        // O desfecho da época entra direto no snapshot (o delegate pode não
+        // publicar lastEpoch no seu próprio estado) e a persona exibida é a
+        // configurada pelo usuário, não a interna do delegate (#26).
+        _state.value = _state.value.copy(
+            id = id,
+            personality = configuredPersona,
+            lastEpoch = result,
+        )
+    }
+
+    private val _state = MutableStateFlow(BrainSnapshot(id = id))
+    override val state: StateFlow<BrainSnapshot> = _state.asStateFlow()
 
     override val diagnostics: Flow<String> get() = delegate.diagnostics
 }
