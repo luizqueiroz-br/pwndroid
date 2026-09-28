@@ -122,3 +122,34 @@ data class WhitelistEntryEntity(
     val addedAtMillis: Long,
     val note: String? = null,
 )
+
+/**
+ * Handshake capturado (issue #24): um pcap do [HandshakeSlicer] com o
+ * par AP/ESSID e o tipo. Dedup pela chave `bssid+essid+type` no índice
+ * único (FULL existente bloqueia HALF/PMKID do mesmo par no
+ * repositório; PMKID coexiste com FULL — formatos distintos p/ crack).
+ */
+@Entity(
+    tableName = "handshake",
+    indices = [Index(value = ["bssid", "essid", "type"], unique = true)],
+)
+data class HandshakeEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val bssid: String,
+    val essid: String?,
+    /** FULL, HALF ou PMKID (vocabulário hcxtools). */
+    val type: String,
+    /** Caminho do pcap gravado pelo HandshakeSlicer. */
+    val pcapPath: String,
+    val station: String,
+    /** Millis de época (System.currentTimeMillis). */
+    val capturedAtMillis: Long,
+    /** Sessão que capturou (FK opcional, null = fora de sessão). */
+    val sessionId: Long? = null,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    /** Fix de GPS em string (plugin gps da v0.3). */
+    val uploadedWpaSec: Boolean = false,
+    val uploadedOnlineHashCracking: Boolean = false,
+)
+

@@ -22,6 +22,7 @@ import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveBackend
 import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveDependencies
 import br.com.luizqueiroz.pwndroid.core.session.SessionRegistry
 import br.com.luizqueiroz.pwndroid.data.ConfigStore
+import br.com.luizqueiroz.pwndroid.data.HandshakeRepository
 import br.com.luizqueiroz.pwndroid.data.PwnDatabase
 import br.com.luizqueiroz.pwndroid.data.WardriveRepository
 import br.com.luizqueiroz.pwndroid.data.WhitelistRepository
@@ -125,10 +126,12 @@ val dataModule = module {
             logger = get(),
         )
     }
-    // Banco Room da issue #15 + repositórios da tela Wardrive (issue #18).
+    // Banco Room da issue #15 + repositórios das telas Wardrive (#18) e
+    // Handshakes (#24).
     single { PwnDatabase.build(androidApplication()) }
     single { WardriveRepository(get<PwnDatabase>()) }
     single { WhitelistRepository(get<PwnDatabase>().whitelistDao()) }
+    single { HandshakeRepository(get<PwnDatabase>()) }
 }
 
 val pluginsModule = module {
