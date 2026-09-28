@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- Onboarding (#14): pedir isenção de otimização de bateria direto. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- BLE (peers pwndroid + wardriving BLE). neverForLocation: scan não
          deriva localização; evita exigir ACCESS_FINE_LOCATION no S+. -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"

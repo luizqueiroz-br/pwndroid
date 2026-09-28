@@ -1,9 +1,13 @@
 package br.com.luizqueiroz.pwndroid
 
+import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -33,6 +37,11 @@ import br.com.luizqueiroz.pwndroid.ui.home.HomeActions
 import br.com.luizqueiroz.pwndroid.ui.home.HomeConfig
 import br.com.luizqueiroz.pwndroid.ui.home.HomeScreen
 import br.com.luizqueiroz.pwndroid.ui.home.HomeState
+import br.com.luizqueiroz.pwndroid.ui.onboarding.OnboardingRequests
+import br.com.luizqueiroz.pwndroid.ui.onboarding.OnboardingScreen
+import br.com.luizqueiroz.pwndroid.ui.onboarding.OnboardingStep
+import br.com.luizqueiroz.pwndroid.ui.onboarding.OnboardingUiState
+import br.com.luizqueiroz.pwndroid.ui.onboarding.RootDetector
 import br.com.luizqueiroz.pwndroid.ui.wardrive.AccessPointDetailDialog
 import br.com.luizqueiroz.pwndroid.ui.wardrive.WardriveScreen
 import br.com.luizqueiroz.pwndroid.ui.wardrive.WardriveState
@@ -54,10 +63,11 @@ class MainActivity : ComponentActivity() {
         val backends = koin.get<List<RadioBackend>>()
         val bus = koin.get<br.com.luizqueiroz.pwndroid.core.common.EventBus>()
         val home = HomeState(registry, bus)
+        val rootDetector = RootDetector()
 
         setContent {
             MaterialTheme {
-                AppTabs(home, configStore, backends, registry, state, this)
+                AppRoot(home, configStore, backends, registry, state, this, rootDetector)
             }
         }
     }
@@ -97,6 +107,96 @@ class MainActivity : ComponentActivity() {
 }
 
 /**
+ * Raiz da UI: mostra o onboarding na primeira execução (issue #14 — flag
+ * `onboarded` no DataStore) e as abas Home/Wardrive/Handshakes depois.
+ */
+@Composable
+private fun AppRoot(
+    home: HomeState,
+    configStore: ConfigStore,
+    backends: List<RadioBackend>,
+    registry: SessionRegistry,
+    wardrive: WardriveState,
+    activity: MainActivity,
+    rootDetector: RootDetector,
+) {
+    val config by remember { configStore.config }.collectAsState(initial = null)
+    val scope = rememberCoroutineScope()
+    val cfg = config
+    val showOnboarding = cfg?.let { OnboardingUiState.shouldShowOnboarding(it) } ?: true
+
+    if (showOnboarding) {
+        // Config ainda não carregada (initial = null): espera em branco
+        // em vez de piscar o onboarding em quem já embarcou.
+        OnboardingFlow(
+            rootDetector = rootDetector,
+            onPersist = {
+                scope.launch {
+                    configStore.setDisclaimerAccepted(true)
+                    configStore.setOnboarded(true)
+                }
+            },
+        )
+    } else {
+        AppTabs(home, configStore, backends, registry, wardrive, activity)
+    }
+}
+
+/**
+ * Fluxo de onboarding (issue #14): dispara os pedidos reais do sistema
+ * (permissão de localização e isenção de bateria), reflete o resultado
+ * no [OnboardingUiState] e persiste `onboarded`/`disclaimerAccepted` no
+ * ConfigStore ao sair do fluxo (botão Concluir ou "Pular para o app").
+ */
+@Composable
+private fun OnboardingFlow(
+    rootDetector: RootDetector,
+    onPersist: () -> Unit,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var state by remember {
+        mutableStateOf(
+            OnboardingUiState(
+                locationGranted = OnboardingRequests.hasLocationPermission(context),
+                batteryExempt = OnboardingRequests.isBatteryExempt(context),
+                rootAvailable = runCatching { rootDetector.isRooted() }.getOrDefault(false),
+            ),
+        )
+    }
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        state = state.withLocation(granted)
+    }
+    val batteryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        // RESULT_OK = usuário concedeu a isenção (o sistema devolve isso
+        // para ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).
+        state = state.withBattery(result.resultCode == Activity.RESULT_OK)
+    }
+
+    OnboardingScreen(
+        state = state,
+        onRequestLocation = {
+            locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        },
+        onRequestBattery = {
+            runCatching { batteryLauncher.launch(OnboardingRequests.batteryIntent(context)) }
+        },
+        onAcceptDisclaimer = { state = state.acceptDisclaimer() },
+        onAdvance = {
+            val next = state.advance()
+            state = next
+            if (next.step == OnboardingStep.ROOT && !next.isLastStep) {
+                // não deveria acontecer, mas mantém o fluxo íntegro
+            }
+        },
+        onFinish = onPersist,
+    )
+}
+
+/**
  * Abas Home/Wardrive com o estado mínimo por tab. O export é escrito em
  * cache e entregue ao share sheet do sistema (Files/Drive/WiGLE).
  */
@@ -114,9 +214,6 @@ private fun AppTabs(
     val backendIds = remember(backends) { backends.map { it.id } }
     val apsFlow = remember { wardrive.aps() }
     val aps by apsFlow.collectAsState(initial = emptyList())
-    val face by home.face.collectAsState()
-    val mood by home.mood.collectAsState()
-    val config by remember { configStore.config }.collectAsState(initial = null)
 
     FaceTicker(home)
 
@@ -267,4 +364,3 @@ private fun FaceTicker(home: HomeState) {
         ticker.join()
     }
 }
-
