@@ -29,10 +29,16 @@ import androidx.core.content.FileProvider
 import br.com.luizqueiroz.pwndroid.core.model.PwnMode
 import br.com.luizqueiroz.pwndroid.core.session.SessionRegistry
 import br.com.luizqueiroz.pwndroid.data.ConfigStore
+import br.com.luizqueiroz.pwndroid.data.HandshakeRepository
 import br.com.luizqueiroz.pwndroid.data.WhitelistRepository
 import br.com.luizqueiroz.pwndroid.data.WardriveRepository
+import br.com.luizqueiroz.pwndroid.data.db.HandshakeEntity
+import br.com.luizqueiroz.pwndroid.data.db.AccessPointWithMeta
 import br.com.luizqueiroz.pwndroid.service.PwnForegroundService
+import br.com.luizqueiroz.pwndroid.ui.handshakes.HandshakeDetailDialog
 import br.com.luizqueiroz.pwndroid.ui.handshakes.HandshakesScreen
+import br.com.luizqueiroz.pwndroid.ui.handshakes.HandshakesState
+import br.com.luizqueiroz.pwndroid.ui.handshakes.fileName
 import br.com.luizqueiroz.pwndroid.ui.home.HomeActions
 import br.com.luizqueiroz.pwndroid.ui.home.HomeConfig
 import br.com.luizqueiroz.pwndroid.ui.home.HomeScreen
@@ -59,6 +65,7 @@ class MainActivity : ComponentActivity() {
         val koin = GlobalContext.get()
         val registry = koin.get<SessionRegistry>()
         val state = WardriveState(repo = koin.get<WardriveRepository>(), whitelist = koin.get<WhitelistRepository>())
+        val handshakesState = HandshakesState(repo = koin.get<HandshakeRepository>())
         val configStore = koin.get<ConfigStore>()
         val backends = koin.get<List<RadioBackend>>()
         val bus = koin.get<br.com.luizqueiroz.pwndroid.core.common.EventBus>()
@@ -67,7 +74,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                AppRoot(home, configStore, backends, registry, state, this, rootDetector)
+                AppRoot(
+                    tabs = TabStates(home, state, handshakesState),
+                    configStore = configStore,
+                    backends = backends,
+                    registry = registry,
+                    activity = this,
+                    rootDetector = rootDetector,
+                )
             }
         }
     }
@@ -104,7 +118,34 @@ class MainActivity : ComponentActivity() {
             )
         }
     }
+
+    /**
+     * Export do pcap do handshake (issue #24): arquivo binário real do
+     * disco via FileProvider + ACTION_SEND (mime octet-stream; o hcxpcapngtool
+     * do usuário recebe o pcap íntegro, hashcat-ready).
+     */
+    internal fun exportPcap(pcapPath: String, name: String) {
+        val file = File(pcapPath)
+        if (!file.exists()) return
+        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(send, "Exportar $name"))
+    }
 }
+
+/**
+ * Estado de tela injetado da atividade (issue #24): agrupa os states das
+ * abas para manter as composables de raiz dentro dos limites do detekt.
+ */
+private data class TabStates(
+    val home: HomeState,
+    val wardrive: WardriveState,
+    val handshakes: HandshakesState,
+)
 
 /**
  * Raiz da UI: mostra o onboarding na primeira execução (issue #14 — flag
@@ -112,11 +153,10 @@ class MainActivity : ComponentActivity() {
  */
 @Composable
 private fun AppRoot(
-    home: HomeState,
+    tabs: TabStates,
     configStore: ConfigStore,
     backends: List<RadioBackend>,
     registry: SessionRegistry,
-    wardrive: WardriveState,
     activity: MainActivity,
     rootDetector: RootDetector,
 ) {
@@ -138,7 +178,7 @@ private fun AppRoot(
             },
         )
     } else {
-        AppTabs(home, configStore, backends, registry, wardrive, activity)
+        AppTabs(tabs, configStore, backends, registry, activity)
     }
 }
 
@@ -197,31 +237,30 @@ private fun OnboardingFlow(
 }
 
 /**
- * Abas Home/Wardrive com o estado mínimo por tab. O export é escrito em
- * cache e entregue ao share sheet do sistema (Files/Drive/WiGLE).
+ * Abas Home/Wardrive/Handshakes com o estado mínimo por tab. O export é
+ * escrito em cache e entregue ao share sheet do sistema (Files/Drive/WiGLE);
+ * o pcap sai direto do disco via FileProvider.
  */
 @Composable
 private fun AppTabs(
-    home: HomeState,
+    tabs: TabStates,
     configStore: ConfigStore,
     backends: List<RadioBackend>,
     registry: SessionRegistry,
-    wardrive: WardriveState,
     activity: MainActivity,
 ) {
+    val (home, wardrive, handshakes) = tabs
     val ui by registry.state.collectAsState()
     val running = ui.backend != null
     val backendIds = remember(backends) { backends.map { it.id } }
     val apsFlow = remember { wardrive.aps() }
     val aps by apsFlow.collectAsState(initial = emptyList())
+    val hsFlow = remember { handshakes.handshakes() }
+    val hsList by hsFlow.collectAsState(initial = emptyList())
 
     FaceTicker(home)
 
     var selectedTab by remember { mutableStateOf(0) }
-    var detailMac by remember { mutableStateOf<String?>(null) }
-    var detail by remember { mutableStateOf<WardriveState.Detail?>(null) }
-    val whitelistMacs by remember { wardrive.whitelistMacs() }.collectAsState(initial = emptySet())
-
     val scope = rememberCoroutineScope()
 
     Scaffold { padding ->
@@ -241,18 +280,74 @@ private fun AppTabs(
                     activity = activity,
                     modifier = Modifier.padding(padding),
                 )
-                2 -> HandshakesScreen(modifier = Modifier.padding(padding))
-                else -> WardriveScreen(
+                2 -> HandshakesTab(
+                    handshakes = handshakes,
+                    list = hsList,
+                    activity = activity,
+                    modifier = Modifier.padding(padding),
+                )
+                else -> WardriveTab(
+                    wardrive = wardrive,
                     aps = aps,
-                    onSelectAp = { mac -> detailMac = mac },
-                    onExportCsv = { activity.exportCsv(wardrive, scope) },
-                    onExportKml = { activity.exportKml(wardrive, scope) },
+                    activity = activity,
+                    scope = scope,
                     modifier = Modifier.padding(padding),
                 )
             }
         }
     }
+}
 
+/**
+ * Tab Handshakes da issue #24: lista de capturas com dialog de detalhe e
+ * export do pcap (share sheet do sistema sobre o arquivo real do disco).
+ */
+@Composable
+private fun HandshakesTab(
+    handshakes: HandshakesState,
+    list: List<HandshakeEntity>,
+    activity: MainActivity,
+    modifier: Modifier = Modifier,
+) {
+    var hsDetail by remember { mutableStateOf<HandshakeEntity?>(null) }
+    HandshakesScreen(
+        handshakes = list,
+        onSelect = { hsDetail = it },
+        modifier = modifier,
+    )
+    hsDetail?.let { hs ->
+        HandshakeDetailDialog(
+            handshake = hs,
+            pcapExists = handshakes.pcapExists(hs.pcapPath),
+            onExport = { activity.exportPcap(hs.pcapPath, hs.fileName()) },
+            onDismiss = { hsDetail = null },
+        )
+    }
+}
+
+/**
+ * Tab Wardrive (issue #18): lista de APs com dialog de detalhe e exports
+ * CSV/KML via share sheet.
+ */
+@Composable
+private fun WardriveTab(
+    wardrive: WardriveState,
+    aps: List<AccessPointWithMeta>,
+    activity: MainActivity,
+    scope: CoroutineScope,
+    modifier: Modifier = Modifier,
+) {
+    var detailMac by remember { mutableStateOf<String?>(null) }
+    var detail by remember { mutableStateOf<WardriveState.Detail?>(null) }
+    val whitelistMacs by remember { wardrive.whitelistMacs() }.collectAsState(initial = emptySet())
+
+    WardriveScreen(
+        aps = aps,
+        onSelectAp = { mac -> detailMac = mac },
+        onExportCsv = { activity.exportCsv(wardrive, scope) },
+        onExportKml = { activity.exportKml(wardrive, scope) },
+        modifier = modifier,
+    )
     detailMac?.let { mac ->
         AccessPointDetailHost(
             wardrive = wardrive,

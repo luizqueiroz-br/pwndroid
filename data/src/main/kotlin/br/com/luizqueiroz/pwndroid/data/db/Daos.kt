@@ -162,3 +162,42 @@ interface BrainArmDao {
         now: Long,
     )
 }
+
+@Dao
+interface HandshakeDao {
+    /** Grava o handshake; ignora se o par bssid+essid+type já existe. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(h: HandshakeEntity): Long
+
+    /** Atualiza o registro (path/capturedAt de re-captura do mesmo tipo). */
+    @Update
+    suspend fun update(h: HandshakeEntity)
+
+    @Query("SELECT * FROM handshake WHERE bssid = :bssid AND essid = :essid AND type = :type LIMIT 1")
+    suspend fun byKey(bssid: String, essid: String?, type: String): HandshakeEntity?
+
+    /** Lista da tela Handshakes (mais recentes primeiro). */
+    @Query("SELECT * FROM handshake ORDER BY capturedAtMillis DESC")
+    fun observeAll(): Flow<List<HandshakeEntity>>
+
+    @Query("SELECT * FROM handshake ORDER BY capturedAtMillis DESC")
+    suspend fun all(): List<HandshakeEntity>
+
+    @Query("SELECT * FROM handshake WHERE id = :id")
+    suspend fun byId(id: Long): HandshakeEntity?
+
+    @Query("DELETE FROM handshake WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("SELECT COUNT(*) FROM handshake WHERE sessionId = :sessionId")
+    suspend fun countOfSession(sessionId: Long): Int
+
+    /** Marca o upload do plugin wpa-sec (v0.3). */
+    @Query("UPDATE handshake SET uploadedWpaSec = :uploaded WHERE id = :id")
+    suspend fun setUploadedWpaSec(id: Long, uploaded: Boolean)
+
+    /** Marca o upload do plugin onlinehashcracking (v0.3). */
+    @Query("UPDATE handshake SET uploadedOnlineHashCracking = :uploaded WHERE id = :id")
+    suspend fun setUploadedOnlineHashCracking(id: Long, uploaded: Boolean)
+}
+
