@@ -46,3 +46,25 @@ jobs:
         with:
           report_paths: '**/build/test-results/*/TEST-*.xml'
           require_tests: false
+
+  pcap-validation:
+    name: PCAP golden validation
+    runs-on: ubuntu-latest
+    container:
+      # hcxpcapngtool + hashcat: valida que os fixtures de pcap da
+      # :core:capture continuam convertendo para hashes 22000 crackeáveis.
+      image: kalilinux/kali-rolling
+    steps:
+      - name: Install capture tools
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq hcxtools hashcat git >/dev/null
+
+      - name: Checkout
+        run: |
+          git clone --depth 1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" repo
+          cd repo && git fetch --depth 1 origin "$GITHUB_SHA" && git checkout "$GITHUB_SHA"
+
+      - name: Validate golden pcap (hcxpcapngtool + hashcat -m 22000)
+        run: bash scripts/validate-pcap.sh
+        working-directory: repo
