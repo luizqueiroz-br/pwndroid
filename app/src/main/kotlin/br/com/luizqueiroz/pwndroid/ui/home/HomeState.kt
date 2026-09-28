@@ -1,5 +1,7 @@
 package br.com.luizqueiroz.pwndroid.ui.home
 
+import br.com.luizqueiroz.pwndroid.core.brain.Brain
+import br.com.luizqueiroz.pwndroid.core.brain.BrainSnapshot
 import br.com.luizqueiroz.pwndroid.core.common.EventBus
 import br.com.luizqueiroz.pwndroid.core.mood.EpochMoodInput
 import br.com.luizqueiroz.pwndroid.core.mood.Mood
@@ -32,6 +34,8 @@ import kotlinx.coroutines.launch
 class HomeState(
     private val registry: SessionRegistry,
     private val bus: EventBus,
+    /** Cérebro injetado — o snapshot observável alimenta a Home (issue #26). */
+    private val brain: Brain? = null,
     private val automata: MoodAutomata = MoodAutomata(),
     private val faceTable: FaceTable = FaceTable(),
     /** Random injetável (testes determinísticos do blink). */
@@ -44,6 +48,9 @@ class HomeState(
     private val _mood = MutableStateFlow(Mood.LONELY)
     /** Humor atual, para o chip colorido da tela. */
     val mood: StateFlow<Mood> = _mood.asStateFlow()
+
+    /** Snapshot observável do cérebro (id, persona, última época) — issue #26. */
+    val brainState: StateFlow<BrainSnapshot> = brain?.state ?: MutableStateFlow(BrainSnapshot(id = "none"))
 
     private var subscriptions: List<Job>? = null
 

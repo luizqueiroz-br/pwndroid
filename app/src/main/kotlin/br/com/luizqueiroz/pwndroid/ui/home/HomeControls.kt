@@ -49,9 +49,9 @@ internal fun SessionStats(ui: SessionUiState, modifier: Modifier = Modifier) {
 }
 
 /**
- * Seletor de modo (issue #13): MANU/AUTO/AI. AI desabilitado até a
- * issue #30 (experimental_ai na config libera, mas o cérebro A2C ainda
- * não existe — v0.1 usa Thompson/Fixed como selector de alvos).
+ * Seletor de modo (issues #13 e #26): MANUAL/AUTO/AI. AI agora habilitado —
+ * roda o ciclo completo com o Brain plugável (FixedBrain/ConfigBrain na
+ * v0.1; o A2C da #43 entra depois, flag-gated).
  */
 @Composable
 internal fun ModeSelector(
@@ -64,7 +64,7 @@ internal fun ModeSelector(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ModeOption(PwnMode.MANUAL, selected, onModeSelected)
             ModeOption(PwnMode.AUTO, selected, onModeSelected)
-            ModeOption(PwnMode.AI, selected, onModeSelected, enabled = false)
+            ModeOption(PwnMode.AI, selected, onModeSelected)
         }
     }
 }
