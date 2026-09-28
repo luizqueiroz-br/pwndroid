@@ -1,67 +1,190 @@
 package br.com.luizqueiroz.pwndroid.core.capture
 
+import java.io.File
+
 /**
- * Analisador de EAPOL: reconhece mensagens M1..M4 e decide quando um
- * handshake está completo (M1+M2) ou um PMKID foi obtido (M1 com PMKID
- * no KDE). Porte da lógica do hcxtools/slicer do pwnagotchi.
+ * Slicer de handshakes (issue #23): dado o pcap agregado do bettercap,
+ * extrai os frames de um alvo (BSSID) e grava um sub-pcap
+ * `<ESSID>_<BSSID>.pcap` com os frames relevantes (beacon + EAPOL),
+ * hashcat-ready. Determina o tipo: FULL (M1+M2), HALF (EAPOL M2..M4
+ * incompleto) ou PMKID (KDE no M1).
  */
-object HandshakeSlicer {
+class HandshakeSlicer(private val outDir: File) {
 
-    /** Tipos de mensagem EAPOL-Key (bits Key Information). */
-    const val EAPOL_KEY_INFO_OFFSET = 6
+    init {
+        require(outDir.mkdirs() || outDir.isDirectory) { "não foi possível criar $outDir" }
+    }
 
     /**
-     * Resultado da análise de um frame EAPOL.
+     * Extrai do pcap agregado os frames do alvo [targetBssid] e grava o
+     * sub-pcap + metadata `.pcap.eye`. Retorna null se não houver EAPOL
+     * do alvo no arquivo (só beacon não justifica um arquivo de
+     * handshake).
      */
-    sealed interface Verdict {
-        /** Mensagem reconhecida, sem handshake completo ainda. */
-        data class Partial(val message: Message) : Verdict
+    fun slice(
+        aggregatedPcap: File,
+        targetBssid: String,
+        essidHint: String? = null,
+    ): SlicedHandshake? {
+        val bssid = targetBssid.uppercase()
+        val parsed = PcapReader.read(aggregatedPcap)
+            .mapNotNull { FrameParser.parse(it.data, it.timestampMicros) }
+        val framesOfTarget = parsed.filter { it.isOfTarget(bssid) }
 
-        /** Handshake M1+M2 completo (half handshake suficiente para hashcat). */
-        data class Complete(val isPmkidOnly: Boolean) : Verdict
+        val essid = essidHint?.takeIf { it.isNotBlank() }
+            ?: framesOfTarget.firstBeaconEssid(bssid)
+        val targets = collectHandshakes(framesOfTarget, bssid, essid)
+        if (targets.isEmpty()) return null
 
-        /** Frame não é EAPOL. */
-        object NotEapol : Verdict
+        val pcapFile = writeSubPcap(framesOfTarget, essid, bssid)
+        writeEyeFile(pcapFile, essid, targets.maxByOrNull { it.type.rank() }!!)
+        return SlicedHandshake(
+            pcapPath = pcapFile.absolutePath,
+            essid = essid,
+            bssid = bssid,
+            targets = targets,
+        )
     }
 
-    /** Mensagens EAPOL-Key do 4-way handshake. */
-    enum class Message { M1, M2, M3, M4 }
+    /** Caminho do sub-pcap (mesma regra de nome do [PcapWriter]). */
+    private fun outFile(essid: String?, bssid: String): File =
+        File(outDir, PcapWriter.fileNameFor(essid, bssid))
 
-    /**
-     * Classifica um frame a partir do payload EAPOL (sem o header 802.11).
-     * [eapolFrame] deve começar no campo Version do EAPOL (offset 0).
-     */
-    fun classify(eapolFrame: ByteArray): Verdict {
-        if (eapolFrame.size < EAPOL_KEY_INFO_OFFSET + 4) return Verdict.NotEapol
-        // Frame Type 0x03 = EAPOL-Key.
-        val frameType = eapolFrame[1].toInt() and 0xff
-        if (frameType != 0x03) return Verdict.NotEapol
-
-        // Key Information: 2 bytes big-endian em offset 6 (layout hcxtools
-        // simplificado).
-        val keyInfo = ((eapolFrame[6].toInt() and 0xff) shl 8) or (eapolFrame[7].toInt() and 0xff)
-        val key = messageOf(keyInfo) ?: return Verdict.NotEapol
-        // TODO(issue #11): detectar PMKID no KDE do M1 e rastrear pares M1/M2.
-        return Verdict.Partial(key)
+    /** Grava o sub-pcap com os frames do alvo e retorna o arquivo. */
+    private fun writeSubPcap(
+        framesOfTarget: List<ParsedFrame>,
+        essid: String?,
+        bssid: String,
+    ): File {
+        val pcap = PcapWriter(outDir).openFor(essid, bssid)
+        framesOfTarget.forEach { pcap.writePacket(it.raw, it.timestampMicros) }
+        pcap.close()
+        return outFile(essid, bssid)
     }
 
-    private fun messageOf(keyInfo: Int): Message? = when {
-        hasBit(keyInfo, KEY_INFO_KEY_ACK) && !hasBit(keyInfo, KEY_INFO_MIC) -> Message.M1
-        !hasBit(keyInfo, KEY_INFO_KEY_ACK) &&
-            hasBit(keyInfo, KEY_INFO_MIC) &&
-            !hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M2
-        hasBit(keyInfo, KEY_INFO_KEY_ACK) &&
-            hasBit(keyInfo, KEY_INFO_MIC) &&
-            !hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M3
-        !hasBit(keyInfo, KEY_INFO_KEY_ACK) &&
-            hasBit(keyInfo, KEY_INFO_MIC) &&
-            hasBit(keyInfo, KEY_INFO_SECURE) -> Message.M4
-        else -> null
+    /** Metadata `.pcap.eye` ao lado do pcap (formato do pwnagotchi original). */
+    private fun writeEyeFile(pcapFile: File, essid: String?, best: HandshakeTarget) {
+        val nowSec = System.currentTimeMillis() / 1000
+        val type = if (best.type == HandshakeType.PMKID) "pmkid" else "handshake"
+        File(pcapFile.path + ".eye").writeText(
+            buildString {
+                append("{\n")
+                append("  \"essid\": ${jsonStr(essid)},\n")
+                append("  \"bssid\": \"${best.bssid}\",\n")
+                append("  \"station\": \"${best.station}\",\n")
+                append("  \"timestamp\": $nowSec,\n")
+                append("  \"type\": \"$type\"\n")
+                append("}\n")
+            },
+        )
     }
 
-    private fun hasBit(value: Int, bit: Int) = (value and bit) != 0
+    /** String JSON escapada (essid pode conter aspas). */
+    private fun jsonStr(value: String?): String =
+        if (value == null) "null" else "\"" + value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"") + "\""
 
-    private const val KEY_INFO_KEY_ACK = 0x0080
-    private const val KEY_INFO_MIC = 0x0100
-    private const val KEY_INFO_SECURE = 0x2000
+    /** Estado EAPOL de uma estação contra o alvo. */
+    private class StationState {
+        var m1 = false
+        var m2 = false
+        var m3 = false
+        var m4 = false
+        var pmkid = false
+        var full = false
+
+        /**
+         * Tipo por estação, ordem de prioridade do original: FULL >
+         * PMKID > HALF (hcxpcapngtool aceita os três, FULL é o melhor).
+         */
+        fun handshakeType(): HandshakeType? = when {
+            full -> HandshakeType.FULL
+            pmkid -> HandshakeType.PMKID
+            m2 || m3 || m4 -> HandshakeType.HALF
+            else -> null
+        }
+    }
+
+    /** State machine por estação: M1→M2 = FULL; M1 com PMKID = PMKID. */
+    private fun collectHandshakes(
+        frames: List<ParsedFrame>,
+        bssid: String,
+        essid: String?,
+    ): List<HandshakeTarget> {
+        val stations = LinkedHashMap<String, StationState>()
+        frames.asSequence()
+            .filterIsInstance<ParsedFrame.Eapol>()
+            .mapNotNull { frame -> EapolParser.classify(frame.eapol)?.let { frame to it } }
+            .forEach { (frame, msg) -> updateStation(stations, frame, msg) }
+        return stations.mapNotNull { (station, state) ->
+            val type = state.handshakeType() ?: return@mapNotNull null
+            HandshakeTarget(bssid, essid, station, type)
+        }
+    }
+
+    private fun updateStation(
+        stations: LinkedHashMap<String, StationState>,
+        frame: ParsedFrame.Eapol,
+        msg: EapolParser.Message,
+    ) {
+        val state = stations.getOrPut(frame.station) { StationState() }
+        when (msg) {
+            EapolParser.Message.M1 -> {
+                state.m1 = true
+                if (EapolParser.extractPmkid(frame.eapol) != null) state.pmkid = true
+            }
+            EapolParser.Message.M2 -> {
+                state.m2 = true
+                if (state.m1) state.full = true
+            }
+            EapolParser.Message.M3 -> state.m3 = true
+            EapolParser.Message.M4 -> state.m4 = true
+        }
+    }
+}
+
+/** Frame do alvo: EAPOL ou beacon/probe-resp com o BSSID. */
+private fun ParsedFrame.isOfTarget(bssid: String): Boolean =
+    when (this) {
+        is ParsedFrame.Beacon -> this.bssid.uppercase() == bssid
+        is ParsedFrame.Eapol -> this.bssid.uppercase() == bssid
+        else -> false
+    }
+
+/** Primeiro ESSID visível nos beacons do alvo (null se oculto). */
+private fun List<ParsedFrame>.firstBeaconEssid(bssid: String): String? =
+    filterIsInstance<ParsedFrame.Beacon>()
+        .firstOrNull { it.bssid.uppercase() == bssid && it.essid.isNotBlank() }
+        ?.essid
+
+/** Tipo do handshake extraído. */
+enum class HandshakeType { FULL, HALF, PMKID }
+
+/** Handshake de uma estação contra um AP. */
+data class HandshakeTarget(
+    val bssid: String,
+    val essid: String?,
+    val station: String,
+    val type: HandshakeType,
+)
+
+/**
+ * Resultado do slicing: sub-pcap por alvo + tipo de handshake por
+ * estação.
+ */
+data class SlicedHandshake(
+    val pcapPath: String,
+    val essid: String?,
+    val bssid: String,
+    val targets: List<HandshakeTarget>,
+) {
+    /** O melhor handshake do alvo (FULL > PMKID > HALF). */
+    fun best(): HandshakeTarget? = targets.maxByOrNull { it.type.rank() }
+}
+
+private fun HandshakeType.rank(): Int = when (this) {
+    HandshakeType.FULL -> 3
+    HandshakeType.PMKID -> 2
+    HandshakeType.HALF -> 1
 }

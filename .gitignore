@@ -43,3 +43,6 @@ Thumbs.db
 crash-reports/
 # logs locais de build
 build_*.log
+
+# pcaps só podem entrar no repo como fixtures de teste
+!core/capture/src/test/resources/fixtures/*.pcap
