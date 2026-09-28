@@ -23,6 +23,7 @@ ksp {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":core:brain"))
     implementation(project(":core:common"))
     implementation(project(":core:radio"))
     implementation(libs.kotlinx.coroutines.core)
