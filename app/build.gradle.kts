@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:radio"))
     implementation(project(":core:radio:passive"))
+    implementation(project(":core:radio:bettercap"))
     implementation(project(":core:brain"))
     implementation(project(":core:mood"))
     implementation(project(":core:session"))
