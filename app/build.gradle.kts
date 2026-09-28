@@ -40,7 +40,12 @@ dependencies {
     implementation(project(":core:mood"))
     implementation(project(":core:session"))
     implementation(project(":data"))
+    // PwnDatabase estende RoomDatabase: o :app precisa do tipo no classpath
+    // para o wiring Koin do dataModule (issue #18).
+    implementation(libs.room.runtime)
     implementation(libs.datastore.preferences)
+    implementation(libs.osmdroid)
+    implementation(libs.koin.core)
     implementation(project(":plugins:api"))
     implementation(project(":plugins:builtin"))
     implementation(project(":feature:display"))

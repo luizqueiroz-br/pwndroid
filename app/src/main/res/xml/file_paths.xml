@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Caminhos exportáveis via FileProvider (issue #18): o CSV/KML é
+     escrito em cacheDir antes do ACTION_SEND. -->
+<paths>
+    <cache-path
+        name="exports"
+        path="." />
+</paths>

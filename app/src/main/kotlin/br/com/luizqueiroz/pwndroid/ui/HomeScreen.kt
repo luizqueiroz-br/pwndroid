@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,7 +21,7 @@ import br.com.luizqueiroz.pwndroid.core.session.SessionUiState
 import br.com.luizqueiroz.pwndroid.feature.display.FaceRenderer
 
 /**
- * Home mínima da issue #8 (stub; a real é a issue #15): start/stop do
+ * Home mínima da issue #8 (stub; a real é a issue #13): start/stop do
  * serviço + estado da sessão em texto simples.
  */
 @Composable
@@ -31,16 +30,15 @@ fun HomeScreen(
     running: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Scaffold { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
             FaceRenderer(
                 face = FaceState(Mood.LONELY, "(⌒▽⌒)", "Estou sozinho, procurando redes…"),
                 uptimeText = "época ${ui.session.epoch}",
@@ -54,7 +52,6 @@ fun HomeScreen(
 
             SessionSummary(ui)
         }
-    }
 }
 
 @Composable
