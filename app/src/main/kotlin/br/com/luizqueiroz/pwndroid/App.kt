@@ -28,7 +28,6 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.Koin
 import org.koin.core.context.GlobalContext
 import org.koin.core.qualifier.named
-import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 
 /**
@@ -116,12 +115,29 @@ object AppGraph {
             koinInstance?.let { return it }
             val app = PwnApplication.current()
             return synchronized(this) {
-                koinInstance ?: koinApplication {
-                    androidContext(app)
-                    modules(coreModule, radioModule, brainModule, sessionModule, dataModule, pluginsModule)
-                }.koin.also { koinInstance = it }
+                koinInstance ?: run {
+                    // startKoin (não koinApplication): registra no
+                    // GlobalContext — o FGS, o MainActivity e o
+                    // BootCompletedReceiver consultam GlobalContext.get()
+                    // e falhariam com "KoinApplication has not been
+                    // started" se o grafo fosse standalone (bug achado
+                    // pelo Robolectric na issue #17).
+                    org.koin.core.context.startKoin {
+                        androidContext(app)
+                        modules(coreModule, radioModule, brainModule, sessionModule, dataModule, pluginsModule)
+                    }.koin.also { koinInstance = it }
+                }
             }
         }
+
+    /** Reset para testes Robolectric: estáticos persistem entre testes. */
+    fun resetForTest() {
+        synchronized(this) {
+            koinInstance?.close()
+            koinInstance = null
+        }
+        runCatching { org.koin.core.context.stopKoin() }
+    }
 }
 
 /**

@@ -1,0 +1,194 @@
+> Task :data:preBuild UP-TO-DATE
+> Task :data:preDebugBuild UP-TO-DATE
+> Task :feature:display:preBuild UP-TO-DATE
+> Task :feature:display:preDebugBuild UP-TO-DATE
+> Task :core:session:checkKotlinGradlePluginConfigurationErrors
+> Task :plugins:builtin:checkKotlinGradlePluginConfigurationErrors
+> Task :core:common:checkKotlinGradlePluginConfigurationErrors
+> Task :core:radio:checkKotlinGradlePluginConfigurationErrors
+> Task :data:writeDebugAarMetadata UP-TO-DATE
+> Task :core:model:checkKotlinGradlePluginConfigurationErrors
+> Task :core:radio:passive:preBuild UP-TO-DATE
+> Task :core:session:processResources NO-SOURCE
+> Task :feature:display:writeDebugAarMetadata UP-TO-DATE
+> Task :plugins:api:checkKotlinGradlePluginConfigurationErrors
+> Task :core:brain:checkKotlinGradlePluginConfigurationErrors
+> Task :core:mood:checkKotlinGradlePluginConfigurationErrors
+> Task :core:radio:processResources NO-SOURCE
+> Task :plugins:builtin:processResources NO-SOURCE
+> Task :data:generateDebugResValues UP-TO-DATE
+> Task :data:generateDebugResources UP-TO-DATE
+> Task :feature:display:generateDebugResValues UP-TO-DATE
+> Task :feature:display:generateDebugResources UP-TO-DATE
+> Task :data:packageDebugResources UP-TO-DATE
+> Task :feature:webapi:checkKotlinGradlePluginConfigurationErrors
+> Task :feature:webapi:processResources NO-SOURCE
+> Task :data:extractDeepLinksDebug UP-TO-DATE
+> Task :data:processDebugManifest UP-TO-DATE
+> Task :feature:display:packageDebugResources UP-TO-DATE
+> Task :data:compileDebugLibraryResources UP-TO-DATE
+> Task :feature:display:extractDeepLinksDebug UP-TO-DATE
+> Task :core:radio:passive:preDebugBuild UP-TO-DATE
+> Task :core:brain:processResources NO-SOURCE
+> Task :core:mood:processResources NO-SOURCE
+> Task :core:radio:passive:writeDebugAarMetadata UP-TO-DATE
+> Task :plugins:api:processResources NO-SOURCE
+> Task :feature:display:processDebugManifest UP-TO-DATE
+> Task :data:parseDebugLocalResources UP-TO-DATE
+> Task :core:radio:passive:generateDebugResValues UP-TO-DATE
+> Task :core:radio:passive:generateDebugResources UP-TO-DATE
+> Task :data:generateDebugRFile UP-TO-DATE
+> Task :feature:display:compileDebugLibraryResources UP-TO-DATE
+> Task :data:checkKotlinGradlePluginConfigurationErrors
+> Task :data:javaPreCompileDebug UP-TO-DATE
+> Task :core:radio:passive:packageDebugResources UP-TO-DATE
+> Task :data:mergeDebugShaders UP-TO-DATE
+> Task :feature:display:parseDebugLocalResources UP-TO-DATE
+> Task :data:compileDebugShaders NO-SOURCE
+> Task :data:generateDebugAssets UP-TO-DATE
+> Task :core:radio:passive:extractDeepLinksDebug UP-TO-DATE
+> Task :feature:display:generateDebugRFile UP-TO-DATE
+> Task :data:packageDebugAssets UP-TO-DATE
+> Task :core:radio:passive:processDebugManifest UP-TO-DATE
+> Task :feature:display:checkKotlinGradlePluginConfigurationErrors
+> Task :data:mergeDebugJniLibFolders UP-TO-DATE
+> Task :data:mergeDebugNativeLibs NO-SOURCE
+> Task :feature:display:javaPreCompileDebug UP-TO-DATE
+> Task :core:radio:passive:compileDebugLibraryResources UP-TO-DATE
+> Task :data:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :feature:display:mergeDebugShaders UP-TO-DATE
+> Task :feature:display:compileDebugShaders NO-SOURCE
+> Task :feature:display:generateDebugAssets UP-TO-DATE
+> Task :feature:display:packageDebugAssets UP-TO-DATE
+> Task :core:radio:passive:parseDebugLocalResources UP-TO-DATE
+> Task :feature:display:mergeDebugJniLibFolders UP-TO-DATE
+> Task :feature:display:mergeDebugNativeLibs NO-SOURCE
+> Task :core:radio:passive:generateDebugRFile UP-TO-DATE
+> Task :feature:display:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:radio:passive:checkKotlinGradlePluginConfigurationErrors
+> Task :core:radio:passive:javaPreCompileDebug UP-TO-DATE
+> Task :core:common:compileKotlin UP-TO-DATE
+> Task :core:radio:passive:mergeDebugShaders UP-TO-DATE
+> Task :core:common:compileJava NO-SOURCE
+> Task :core:radio:passive:compileDebugShaders NO-SOURCE
+> Task :core:radio:passive:generateDebugAssets UP-TO-DATE
+> Task :core:common:processResources NO-SOURCE
+> Task :core:common:classes UP-TO-DATE
+> Task :core:radio:passive:packageDebugAssets UP-TO-DATE
+> Task :core:common:jar UP-TO-DATE
+> Task :core:radio:passive:mergeDebugJniLibFolders UP-TO-DATE
+> Task :core:radio:passive:mergeDebugNativeLibs NO-SOURCE
+> Task :core:radio:passive:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :core:model:compileKotlin UP-TO-DATE
+> Task :core:model:compileJava NO-SOURCE
+> Task :core:model:processResources NO-SOURCE
+> Task :core:model:classes UP-TO-DATE
+> Task :core:model:jar UP-TO-DATE
+> Task :core:mood:compileKotlin UP-TO-DATE
+> Task :core:radio:compileKotlin UP-TO-DATE
+> Task :plugins:api:compileKotlin UP-TO-DATE
+> Task :plugins:api:compileJava NO-SOURCE
+> Task :core:mood:compileJava NO-SOURCE
+> Task :plugins:api:classes UP-TO-DATE
+> Task :core:mood:classes UP-TO-DATE
+> Task :core:radio:compileJava NO-SOURCE
+> Task :core:radio:classes UP-TO-DATE
+> Task :core:mood:jar UP-TO-DATE
+> Task :plugins:api:jar UP-TO-DATE
+> Task :core:radio:jar UP-TO-DATE
+> Task :core:brain:compileKotlin UP-TO-DATE
+> Task :core:brain:compileJava NO-SOURCE
+> Task :core:brain:classes UP-TO-DATE
+> Task :core:brain:jar UP-TO-DATE
+> Task :core:radio:passive:compileDebugKotlin UP-TO-DATE
+> Task :core:session:compileKotlin UP-TO-DATE
+> Task :core:radio:passive:compileDebugJavaWithJavac NO-SOURCE
+> Task :core:session:compileJava NO-SOURCE
+> Task :core:radio:passive:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :core:session:classes UP-TO-DATE
+> Task :core:radio:passive:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :core:session:jar UP-TO-DATE
+> Task :core:radio:passive:processDebugJavaRes UP-TO-DATE
+> Task :core:radio:passive:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :data:compileDebugKotlin UP-TO-DATE
+> Task :data:compileDebugJavaWithJavac NO-SOURCE
+> Task :data:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :data:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :data:processDebugJavaRes UP-TO-DATE
+> Task :plugins:builtin:compileKotlin UP-TO-DATE
+> Task :feature:webapi:compileKotlin UP-TO-DATE
+> Task :feature:webapi:compileJava NO-SOURCE
+> Task :plugins:builtin:compileJava NO-SOURCE
+> Task :feature:webapi:classes UP-TO-DATE
+> Task :plugins:builtin:classes UP-TO-DATE
+> Task :data:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :feature:webapi:jar UP-TO-DATE
+> Task :plugins:builtin:jar UP-TO-DATE
+> Task :feature:display:compileDebugKotlin UP-TO-DATE
+> Task :feature:display:compileDebugJavaWithJavac NO-SOURCE
+> Task :feature:display:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :feature:display:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :feature:display:processDebugJavaRes UP-TO-DATE
+> Task :feature:display:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:detekt
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:bundleDebugClassesToRuntimeJar UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:dexBuilderDebug UP-TO-DATE
+> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeProjectDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:packageDebug UP-TO-DATE
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleDebug UP-TO-DATE
+
+> Task :app:compileDebugUnitTestKotlin
+w: file:///home/qq/orca/projects/pwnadroind/app/src/test/kotlin/br/com/luizqueiroz/pwndroid/service/PwnForegroundServiceTest.kt:69:29 'withIntent(Intent!): ServiceController<T!>!' is deprecated. Deprecated in Java
+w: file:///home/qq/orca/projects/pwnadroind/app/src/test/kotlin/br/com/luizqueiroz/pwndroid/service/PwnForegroundServiceTest.kt:136:20 'withIntent(Intent!): ServiceController<T!>!' is deprecated. Deprecated in Java
+w: file:///home/qq/orca/projects/pwnadroind/app/src/test/kotlin/br/com/luizqueiroz/pwndroid/service/PwnForegroundServiceTest.kt:163:20 'withIntent(Intent!): ServiceController<T!>!' is deprecated. Deprecated in Java
+w: file:///home/qq/orca/projects/pwnadroind/app/src/test/kotlin/br/com/luizqueiroz/pwndroid/service/PwnForegroundServiceTest.kt:166:20 'withIntent(Intent!): ServiceController<T!>!' is deprecated. Deprecated in Java
+
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :app:testDebugUnitTest
+
+BUILD SUCCESSFUL in 4s
+124 actionable tasks: 16 executed, 108 up-to-date
+EXIT=0
