@@ -90,17 +90,32 @@ interface StartedBackend {
 
 /**
  * Seleciona o melhor backend disponível: tenta `start()` em ordem de
- * capacidades e devolve o primeiro que sobe.
+ * capacidades e devolve o primeiro que sobe. Com [preferred], tenta o
+ * backend preferido primeiro (config do usuário; se não subir, cai para
+ * a ordem normal — a sessão não falha por preferência inválida).
  */
 class BackendSelector(private val candidates: List<RadioBackend>) {
 
     /** O backend com mais capacidades que conseguiu subir, ou null. */
-    suspend fun select(env: BackendEnvironment): StartedBackend? =
-        candidates
+    suspend fun select(env: BackendEnvironment, preferred: BackendId? = null): StartedBackend? {
+        // Ordem base: mais capacidades primeiro. Com preferido (issue #13),
+        // ele vai para a frente; os demais seguem a ordem normal (fallback
+        // se o preferido não subir).
+        val ordered = candidates
             .sortedByDescending { it.capabilities.score() }
+            .let { sorted ->
+                if (preferred == null) {
+                    sorted
+                } else {
+                    sorted.filter { it.id == preferred } +
+                        sorted.filter { it.id != preferred }
+                }
+            }
+        return ordered
             .firstNotNullOfOrNull { backend ->
                 runCatching { backend.start(env) }.getOrNull()
             }
+    }
 
     private fun RadioCapabilities.score(): Int =
         listOf(canRecon, canAssoc, canDeauth, canCaptureEapol, canCapturePmkid, canSetChannel, canSeePeers, canBle)
