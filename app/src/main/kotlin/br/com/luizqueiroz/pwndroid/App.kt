@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.pm.ApplicationInfo
 import br.com.luizqueiroz.pwndroid.core.brain.Brain
 import br.com.luizqueiroz.pwndroid.core.brain.ConfigBrain
-import br.com.luizqueiroz.pwndroid.core.brain.FixedBrain
+import br.com.luizqueiroz.pwndroid.core.brain.ThompsonSamplingBrain
 import br.com.luizqueiroz.pwndroid.core.common.AppClock
 import br.com.luizqueiroz.pwndroid.core.common.AppLogger
 import br.com.luizqueiroz.pwndroid.core.common.EventBus
@@ -21,6 +21,7 @@ import br.com.luizqueiroz.pwndroid.core.radio.passive.AndroidSystemChecks
 import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveBackend
 import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveDependencies
 import br.com.luizqueiroz.pwndroid.core.session.SessionRegistry
+import br.com.luizqueiroz.pwndroid.data.BrainArmRepository
 import br.com.luizqueiroz.pwndroid.data.ConfigStore
 import br.com.luizqueiroz.pwndroid.data.HandshakeRepository
 import br.com.luizqueiroz.pwndroid.data.PwnDatabase
@@ -94,14 +95,16 @@ val radioModule = module {
 }
 
 val brainModule = module {
-    // Thompson Sampling chega na issue #12; FixedBrain é o padrão provisório.
-    // ConfigBrain (issue #59): personalidade configurada vale na próxima
-    // época, sem restart — delegate é o cérebro que aprende; só a
-    // personality é sobreposta pelo config Flow.
+    // Thompson Sampling (issue #27) é o cérebro padrão: aprende α/β por
+    // arma e persiste na tabela brain_arm (BrainArmRepository) — sobrevive
+    // a restarts. ConfigBrain (issue #59) sobrepõe a personality configurada
+    // pelo usuário; o delegate segue dono do aprendizado.
     single<Brain> {
         val store = get<ConfigStore>()
         ConfigBrain(
-            delegate = FixedBrain(),
+            delegate = ThompsonSamplingBrain(
+                store = BrainArmRepository(get<PwnDatabase>().brainArmDao()),
+            ),
             personalityUpdates = store.config.map { it.personality },
         )
     }
