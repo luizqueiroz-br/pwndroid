@@ -41,3 +41,5 @@ Thumbs.db
 *.env
 *.local
 crash-reports/
+# logs locais de build
+build_*.log
