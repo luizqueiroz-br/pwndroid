@@ -133,15 +133,20 @@ class BettercapBackend(
      * Lança o processo bettercap via su em background (nohup + &, o exec
      * volta na hora) com a API REST no localhost — a UI/orquestrador fala
      * com ele pela [BettercapApi], não via shell.
+     *
+     * Flags validadas no spike #22 (bettercap v2.41.7): não existem
+     * flags `-api-rest*` — a API sobe via `-eval` com `set api.rest.*`
+     * (endereço aceita só IP; a porta é `api.rest.port`) e
+     * `api.rest.websocket true` é obrigatório para o `/api/events`
+     * virar WebSocket (default: streaming HTTPS de um array de eventos).
      */
     private suspend fun launchProcess(binaryPath: String, iface: String, captureDir: String) {
         val logFile = "${BettercapInstaller.TARGET_DIR}/bettercap.log"
         val handshakesFile = "$captureDir/handshakes"
+        val eval = BettercapBackend.evalArgs(handshakesFile = handshakesFile)
         val launch = shell.exec(
-            "nohup '$binaryPath' -iface '$iface' -api-rest " +
-                "-api-rest.address $HOST:$PORT " +
-                "-api-rest.username '$API_USERNAME' -api-rest.password '$API_PASSWORD' " +
-                "-no-colors -eval \"set wifi.handshakes.file '$handshakesFile'\" " +
+            "nohup '$binaryPath' -iface '$iface' -no-colors -no-history " +
+                "-eval \"$eval\" " +
                 ">> '$logFile' 2>&1 &",
         )
         if (!launch.ok) {
@@ -205,6 +210,28 @@ class BettercapBackend(
 
         /** Intervalo entre sondas (ms). */
         const val API_PROBE_INTERVAL_MS = 500L
+
+        /**
+         * Comando `-eval` do bettercap para subir a API REST no
+         * localhost (spike #22: flags `-api-rest*` não existem na
+         * v2.41; `api.rest.websocket true` é obrigatório para o
+         * `/api/events` ser WebSocket).
+         */
+        fun evalArgs(
+            host: String = HOST,
+            port: Int = PORT,
+            username: String = API_USERNAME,
+            password: String = API_PASSWORD,
+            handshakesFile: String,
+        ): String = listOf(
+            "set api.rest.address $host",
+            "set api.rest.port $port",
+            "set api.rest.username '$username'",
+            "set api.rest.password '$password'",
+            "set api.rest.websocket true",
+            "set wifi.handshakes.file '$handshakesFile'",
+            "api.rest on",
+        ).joinToString("; ")
     }
 }
 

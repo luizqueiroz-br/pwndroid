@@ -29,15 +29,30 @@ object BettercapJson {
      */
     fun parseSession(body: String): BettercapSession {
         val root = parseObject(body, "sessão")
+        // bettercap v2.41+ (validado no spike #22): os APs vivem em
+        // `wifi.aps` e cada AP embute seus clientes na chave `clients`
+        // (não existe lista plana de STAs com `ap_mac`). O campo de
+        // essid do AP na sessão é `hostname` (ESSID() → Hostname).
+        val aps = root.arrayAtPath("aps")
+        val stations = aps.flatMap { apElement ->
+            val apObj = apElement as? JsonObject
+            val apMac = apObj?.str("mac")
+            apObj?.arrayAtPath("clients")
+                ?.mapNotNull { staOrNull(it, apMac) }
+                ?: emptyList()
+        }
         return BettercapSession(
-            accessPoints = root.arrayAtPath("aps").mapNotNull(::apOrNull),
-            stations = root.arrayAtPath("stations").mapNotNull(::staOrNull),
+            accessPoints = aps.mapNotNull(::apOrNull),
+            stations = stations,
         )
     }
 
     /**
      * Frame WS de evento → [BettercapEvent] com `tag` (ex.
      * `wifi.client.handshake`) + payload (objeto JSON anexado).
+     *
+     * Frame real do bettercap: `{"tag": ..., "time": ..., "data":
+     * <payload>}` — o payload vive em `data` (spike #22, validado).
      */
     fun parseEvent(frame: String): BettercapEvent {
         val root = parseObject(frame, "evento WS")
@@ -45,7 +60,7 @@ object BettercapJson {
             ?: throw BettercapApiException("evento WS sem 'tag'")
         return BettercapEvent(
             tag = tag,
-            payload = root,
+            payload = root["data"] as? JsonObject ?: root,
         )
     }
 
@@ -65,7 +80,10 @@ object BettercapJson {
         val mac = obj.str("mac") ?: return null
         return ApiAccessPoint(
             mac = mac,
-            essid = obj.str("essid"),
+            // Na sessão real a essid do AP serializa como `hostname`
+            // (ESSID() → endpoint.Hostname); aceita `essid` também
+            // (payload de eventos antigos / outras versões).
+            essid = obj.str("hostname") ?: obj.str("essid"),
             rssi = obj.int("rssi") ?: -100,
             channel = obj.int("channel") ?: 0,
             frequency = obj.int("frequency") ?: 0,
@@ -75,14 +93,18 @@ object BettercapJson {
         )
     }
 
-    /** Objeto `wifi.sta` do bettercap → [ApiStation]. */
-    private fun staOrNull(element: JsonElement): ApiStation? {
+    /**
+     * Objeto `wifi.sta` do bettercap → [ApiStation]. Na sessão v2.41
+     * o cliente não carrega `ap_mac` (vem aninhado no AP) — o
+     * [containingApMac] preenche o campo com o MAC do AP que o contém.
+     */
+    private fun staOrNull(element: JsonElement, containingApMac: String? = null): ApiStation? {
         val obj = element as? JsonObject ?: return null
         val mac = obj.str("mac") ?: return null
         return ApiStation(
             mac = mac,
             rssi = obj.int("rssi") ?: -100,
-            apMac = obj.str("ap_mac"),
+            apMac = obj.str("ap_mac") ?: containingApMac,
         )
     }
 
@@ -132,6 +154,9 @@ object SessionMapper {
 
     /** APs do recon bettercap → domínio, com clientes aninhados. */
     fun toDomainAccessPoints(session: BettercapSession, nowMillis: Long): List<AccessPoint> {
+        // O parseSession preenche `ap_mac` dos clientes aninhados
+        // (spike #22) — o agrupamento plano por ap_mac cobre ambos
+        // os formatos (v2.41 aninhado e payload antigo).
         val stationsByAp = session.stations
             .filter { it.apMac != null }
             .groupBy(
@@ -182,18 +207,45 @@ object EventMapper {
         }
     }
 
-    /** `wifi.client.handshake` → [RadioEvent.HandshakeDetected]. */
+    /**
+     * `wifi.client.handshake` → [RadioEvent.HandshakeDetected].
+     *
+     * Payload real (v2.41, spike #22): `{"file", "new_packets", "ap":
+     * "BSSID", "station": "MAC", "half", "full", "pmkid"}` — `ap` e
+     * `station` são strings MAC; aceita objetos também (fixtures
+     * antigos de outras versões).
+     */
     private fun handshakeEvent(payload: JsonObject, pcapDir: String): RadioEvent? {
-        val ap = payload["ap"] as? JsonObject
-        val client = payload["client"] as? JsonObject
-        val bssid = ap?.str("mac") ?: payload.str("ap_mac") ?: return null
-        val station = client?.str("mac") ?: payload.str("mac") ?: return null
+        val apObj = payload["ap"] as? JsonObject
+        val clientObj = payload["client"] as? JsonObject
+        val bssid = apObj?.str("mac")
+            ?: payload.str("ap")      // v2.41: string MAC
+            ?: payload.str("ap_mac")
+            ?: return null
+        val station = clientObj?.str("mac")
+            ?: payload.str("station") // v2.41: string MAC
+            ?: payload.str("mac")
+            ?: return null
+        // v2.41: o AP no evento handshake é só a string MAC — sem
+        // objeto de onde tirar a essid; `hostname` cobre fixtures
+        // alternativas que embutem o AP como objeto.
+        val essid = apObj?.str("hostname")
+            ?: apObj?.str("essid")
+            ?: payload.str("hostname")
+            ?: payload.str("essid")
         return RadioEvent.HandshakeDetected(
             bssid = bssid,
             station = station,
-            essid = ap?.str("essid") ?: payload.str("essid"),
+            essid = essid,
             pcapPath = payload.str("file") ?: "$pcapDir/handshake.pcap",
-            isPmkid = payload.str("pmkid")?.isNotEmpty() == true,
+            // `pmkid` é bytes em base64 (JSON array de ints) ou hex;
+            // v2.41 também sinaliza com `full`/`half`. Presente não
+            // vazio = PMKID attack; senão handshake EAPOL.
+            isPmkid = run {
+                val pmkid = payload["pmkid"]
+                (pmkid as? JsonPrimitive)?.content?.takeIf { it != "null" && it.isNotBlank() } != null ||
+                    (pmkid as? JsonArray)?.isNotEmpty() == true
+            },
         )
     }
 
@@ -202,7 +254,8 @@ object EventMapper {
         val ap = payload["ap"] as? JsonObject ?: payload
         val bssid = ap.str("mac") ?: return null
         return RadioEvent.ApSeen(
-            essid = ap.str("essid"),
+            // v2.41 (spike #22): essid serializa como `hostname`.
+            essid = ap.str("hostname") ?: ap.str("essid"),
             bssid = bssid,
             channel = ap.int("channel") ?: 0,
             rssi = ap.int("rssi") ?: -100,
@@ -210,13 +263,22 @@ object EventMapper {
         )
     }
 
-    /** `wifi.client.new` → [RadioEvent.StationSeen]. */
+    /**
+     * `wifi.client.new` → [RadioEvent.StationSeen].
+     *
+     * Payload real (v2.41, spike #22): `{"ap": "BSSID", "client":
+     * {objeto station}}` — ClientEvent do Go; aceita formato plano
+     * (`client` com `ap_mac`) também.
+     */
     private fun clientNewEvent(payload: JsonObject): RadioEvent? {
-        val client = payload["client"] as? JsonObject ?: payload
+        val apMac = payload.str("ap")
+        val client = payload["client"] as? JsonObject
+            ?: payload["data"] as? JsonObject
+            ?: payload
         val mac = client.str("mac") ?: return null
         return RadioEvent.StationSeen(
             station = mac,
-            bssid = client.str("ap_mac"),
+            bssid = apMac ?: client.str("ap_mac"),
             rssi = client.int("rssi") ?: -100,
         )
     }

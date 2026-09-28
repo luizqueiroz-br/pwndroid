@@ -21,15 +21,30 @@ class EventMapperTest {
         val frame = fixture("event_handshake.json")
         val event = EventMapper.toRadioEvent(frame, "/tmp/pcap")
             as RadioEvent.HandshakeDetected
+        // v2.41 (spike #22): ap/station são strings MAC e o payload
+        // vive em `data` do frame.
         assertEquals("AA:BB:CC:DD:EE:01", event.bssid)
         assertEquals("11:22:33:44:55:66", event.station)
-        assertEquals("Casa-2G", event.essid)
+        // A string MAC não carrega essid — sem objeto AP no payload.
+        assertNull(event.essid)
         // O bettercap informa o arquivo do pcap capturado.
         assertEquals(
             "/root/handshakes/CASA-2G_AA-BB-CC-DD-EE-01.pcap",
             event.pcapPath,
         )
         assertEquals(false, event.isPmkid)
+    }
+
+    @Test
+    fun `handshake com ap aninhado (formato antigo) também mapeia`() {
+        val frame = """
+            {"tag": "wifi.client.handshake",
+             "data": {"ap": {"mac": "AA:BB:CC:DD:EE:01", "hostname": "Casa-2G"},
+                      "client": {"mac": "11:22:33:44:55:66"}, "file": "/root/x.pcap"}}
+        """.trimIndent()
+        val event = EventMapper.toRadioEvent(frame, "/tmp") as RadioEvent.HandshakeDetected
+        assertEquals("AA:BB:CC:DD:EE:01", event.bssid)
+        assertEquals("Casa-2G", event.essid)
     }
 
     @Test
@@ -71,22 +86,46 @@ class EventMapperTest {
     }
 
     @Test
-    fun `handshake sem ap vira null`() {
-        assertNull(
-            EventMapper.toRadioEvent(
-                """{"tag": "wifi.client.handshake", "client": {"mac": "AA"}}""",
-                "/tmp",
-            ),
-        )
-    }
-
-    @Test
     fun `handshake com pmkid marca isPmkid`() {
+        // v2.41: pmkid não-null (base64/hex) marca PMKID attack.
         val frame = """
-            {"tag": "wifi.client.handshake", "ap": {"mac": "AA:BB:CC:DD:EE:01"},
-             "client": {"mac": "11:22:33:44:55:66"}, "pmkid": "abc123def"}
+            {"tag": "wifi.client.handshake",
+             "data": {"ap": "AA:BB:CC:DD:EE:01", "station": "11:22:33:44:55:66",
+                      "pmkid": "abc123def", "half": false, "full": false}}
         """.trimIndent()
         val event = EventMapper.toRadioEvent(frame, "/tmp") as RadioEvent.HandshakeDetected
         assertTrue(event.isPmkid)
+    }
+
+    @Test
+    fun `handshake com pmkid null não marca isPmkid`() {
+        val frame = """
+            {"tag": "wifi.client.handshake",
+             "data": {"ap": "AA:BB:CC:DD:EE:01", "station": "11:22:33:44:55:66",
+                      "pmkid": null, "half": true, "full": false}}
+        """.trimIndent()
+        val event = EventMapper.toRadioEvent(frame, "/tmp") as RadioEvent.HandshakeDetected
+        assertTrue(!event.isPmkid)
+    }
+
+    @Test
+    fun `handshake v241 com pmkid array de bytes marca isPmkid`() {
+        val frame = """
+            {"tag": "wifi.client.handshake",
+             "data": {"ap": "AA:BB:CC:DD:EE:01", "station": "11:22:33:44:55:66",
+                      "pmkid": [1, 2, 3, 4]}}
+        """.trimIndent()
+        val event = EventMapper.toRadioEvent(frame, "/tmp") as RadioEvent.HandshakeDetected
+        assertTrue(event.isPmkid)
+    }
+
+    @Test
+    fun `handshake sem ap vira null no formato string da v241`() {
+        assertNull(
+            EventMapper.toRadioEvent(
+                """{"tag": "wifi.client.handshake", "data": {"station": "AA", "file": "/x.pcap"}}""",
+                "/tmp",
+            ),
+        )
     }
 }
