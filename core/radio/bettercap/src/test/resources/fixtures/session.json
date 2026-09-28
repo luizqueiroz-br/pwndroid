@@ -3,30 +3,31 @@
     "aps": [
       {
         "mac": "AA:BB:CC:DD:EE:01",
-        "essid": "Casa-2G",
+        "hostname": "Casa-2G",
         "rssi": -42,
         "channel": 6,
         "frequency": 2437,
         "encryption": "WPA2",
         "first_seen": "2026-09-28T10:00:00-03:00",
-        "last_seen": "2026-09-28T10:05:00-03:00"
+        "last_seen": "2026-09-28T10:05:00-03:00",
+        "clients": [
+          {
+            "mac": "11:22:33:44:55:66",
+            "rssi": -48,
+            "vendor": "Apple"
+          }
+        ]
       },
       {
         "mac": "AA:BB:CC:DD:EE:02",
-        "essid": "",
+        "hostname": "",
         "rssi": -55,
         "channel": 11,
         "frequency": 2462,
         "encryption": "WPA2",
         "first_seen": "2026-09-28T10:01:00-03:00",
-        "last_seen": "2026-09-28T10:05:00-03:00"
-      }
-    ],
-    "stations": [
-      {
-        "mac": "11:22:33:44:55:66",
-        "rssi": -48,
-        "ap_mac": "AA:BB:CC:DD:EE:01"
+        "last_seen": "2026-09-28T10:05:00-03:00",
+        "clients": []
       }
     ]
   }
