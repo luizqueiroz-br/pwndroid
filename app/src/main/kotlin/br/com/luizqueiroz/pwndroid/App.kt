@@ -19,6 +19,9 @@ import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveBackend
 import br.com.luizqueiroz.pwndroid.core.radio.passive.PassiveDependencies
 import br.com.luizqueiroz.pwndroid.core.session.SessionRegistry
 import br.com.luizqueiroz.pwndroid.data.ConfigStore
+import br.com.luizqueiroz.pwndroid.data.PwnDatabase
+import br.com.luizqueiroz.pwndroid.data.WardriveRepository
+import br.com.luizqueiroz.pwndroid.data.WhitelistRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -96,6 +99,10 @@ val dataModule = module {
             logger = get(),
         )
     }
+    // Banco Room da issue #15 + repositórios da tela Wardrive (issue #18).
+    single { PwnDatabase.build(androidApplication()) }
+    single { WardriveRepository(get<PwnDatabase>()) }
+    single { WhitelistRepository(get<PwnDatabase>().whitelistDao()) }
 }
 
 val pluginsModule = module {
