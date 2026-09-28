@@ -23,6 +23,7 @@ truth = "1.4.0"
 mockk = "1.13.9"
 detekt = "1.23.5"
 robolectric = "4.11.1"
+ksp = "1.9.22-1.0.17"
 androidxTestCore = "1.5.0"
 
 [libraries]
@@ -81,6 +82,7 @@ kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref =
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+ksp = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
 
 [plugins]
@@ -90,3 +92,4 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

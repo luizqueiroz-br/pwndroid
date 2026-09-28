@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -15,6 +16,11 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 
+// JSON do schema Room (v1 da #15): para migrations e MigrationTestHelper.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:common"))
@@ -23,6 +29,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
     implementation(libs.datastore.preferences)
 
     testImplementation(libs.junit)
@@ -31,4 +38,5 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(libs.room.testing)
 }

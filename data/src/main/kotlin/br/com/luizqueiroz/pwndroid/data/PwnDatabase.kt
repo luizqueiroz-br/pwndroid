@@ -1,67 +1,46 @@
 package br.com.luizqueiroz.pwndroid.data
 
 import androidx.room.Database
-import androidx.room.Entity
-import androidx.room.PrimaryKey
 import androidx.room.RoomDatabase
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.Query
-import android.content.Context
 import androidx.room.Room
+import android.content.Context
+import br.com.luizqueiroz.pwndroid.data.db.AccessPointDao
+import br.com.luizqueiroz.pwndroid.data.db.AccessPointEntity
+import br.com.luizqueiroz.pwndroid.data.db.BrainArmDao
+import br.com.luizqueiroz.pwndroid.data.db.BrainArmEntity
+import br.com.luizqueiroz.pwndroid.data.db.EpochDao
+import br.com.luizqueiroz.pwndroid.data.db.EpochEntity
+import br.com.luizqueiroz.pwndroid.data.db.SightingDao
+import br.com.luizqueiroz.pwndroid.data.db.SightingEntity
+import br.com.luizqueiroz.pwndroid.data.db.SessionDao
+import br.com.luizqueiroz.pwndroid.data.db.SessionEntity
+import br.com.luizqueiroz.pwndroid.data.db.WhitelistDao
+import br.com.luizqueiroz.pwndroid.data.db.WhitelistEntryEntity
 
 /**
- * Entidade de sessão de captura (uma "época" ou janela de wardrive).
+ * Banco principal (schema v1 da #15). `exportSchema = true`: o JSON do
+ * schema é publicado em `data/schemas` para migrations planejadas e
+ * testes de migration (MigrationTestHelper).
  */
-@Entity(tableName = "sessions")
-data class SessionEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val startedAtMillis: Long,
-    val endedAtMillis: Long?,
-    val handshakes: Int = 0,
-    val apsSeen: Int = 0,
+@Database(
+    entities = [
+        AccessPointEntity::class,
+        SightingEntity::class,
+        SessionEntity::class,
+        EpochEntity::class,
+        BrainArmEntity::class,
+        WhitelistEntryEntity::class,
+    ],
+    version = 1,
+    exportSchema = true,
 )
-
-/**
- * Entidade de AP visto (dedup por BSSID por sessão).
- */
-@Entity(tableName = "sightings")
-data class SightingEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val sessionId: Long,
-    val bssid: String,
-    val essid: String?,
-    val channel: Int,
-    val rssi: Int,
-    val firstSeenMillis: Long,
-    val lastSeenMillis: Long,
-)
-
-@Dao
-interface SessionDao {
-    @Insert
-    suspend fun insert(session: SessionEntity): Long
-
-    @Query("UPDATE sessions SET endedAtMillis = :endedAt, handshakes = :handshakes, apsSeen = :apsSeen WHERE id = :id")
-    suspend fun close(id: Long, endedAt: Long, handshakes: Int, apsSeen: Int)
-
-    @Query("SELECT * FROM sessions ORDER BY startedAtMillis DESC LIMIT :limit")
-    suspend fun recent(limit: Int = 20): List<SessionEntity>
-}
-
-@Dao
-interface SightingDao {
-    @Insert
-    suspend fun insert(sighting: SightingEntity): Long
-
-    @Query("SELECT COUNT(*) > 0 FROM sightings WHERE sessionId = :sessionId AND bssid = :bssid")
-    suspend fun exists(sessionId: Long, bssid: String): Boolean
-}
-
-@Database(entities = [SessionEntity::class, SightingEntity::class], version = 1, exportSchema = false)
 abstract class PwnDatabase : RoomDatabase() {
-    abstract fun sessionDao(): SessionDao
+    abstract fun accessPointDao(): AccessPointDao
     abstract fun sightingDao(): SightingDao
+    abstract fun sessionDao(): SessionDao
+    abstract fun epochDao(): EpochDao
+    abstract fun whitelistDao(): WhitelistDao
+    abstract fun brainArmDao(): BrainArmDao
 
     companion object {
         fun build(context: Context): PwnDatabase =
